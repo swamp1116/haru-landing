@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>하루 — 매일 연락하는 나만의 AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@300;400;600;700&family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #0e0c0a;
+  --bg2: #141210;
+  --surface: #1c1916;
+  --border: #2e2820;
+  --text: #f0ebe3;
+  --text2: #a89880;
+  --text3: #5c5040;
+  --accent: #e8a87c;
+  --accent2: #c97a4a;
+  --pink: #e8b4b8;
+  --warm: #f5d5b0;
+}
+
+* { margin:0; padding:0; box-sizing:border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  overflow-x: hidden;
+}
+
+/* 그레인 오버레이 */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 1000;
+  opacity: 0.4;
+}
+
+/* NAV */
+nav {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  padding: 24px 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: linear-gradient(to bottom, rgba(14,12,10,0.9), transparent);
+}
+.nav-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 24px;
+  color: var(--accent);
+  letter-spacing: 1px;
+}
+.nav-cta {
+  padding: 10px 24px;
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text2);
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 24px;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.3s;
+  text-decoration: none;
+}
+.nav-cta:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* HERO */
+.hero {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 120px 24px 80px;
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-glow {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(ellipse, rgba(232,168,124,0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+.hero-glow2 {
+  position: absolute;
+  top: 60%;
+  left: 30%;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(232,180,184,0.05) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: rgba(232,168,124,0.08);
+  border: 1px solid rgba(232,168,124,0.2);
+  border-radius: 20px;
+  font-size: 12px;
+  color: var(--accent);
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  font-weight: 500;
+  margin-bottom: 32px;
+  animation: fadeUp 0.8s ease both;
+}
+.hero-eyebrow::before {
+  content: '';
+  width: 6px; height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+.hero-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(48px, 8vw, 96px);
+  line-height: 1.05;
+  letter-spacing: -2px;
+  margin-bottom: 12px;
+  animation: fadeUp 0.8s ease 0.1s both;
+}
+.hero-title .line1 { color: var(--text); display: block; }
+.hero-title .line2 {
+  color: var(--accent);
+  font-style: italic;
+  display: block;
+}
+
+.hero-sub-title {
+  font-family: 'Noto Serif KR', serif;
+  font-size: clamp(18px, 3vw, 26px);
+  color: var(--text2);
+  font-weight: 300;
+  margin-bottom: 48px;
+  line-height: 1.6;
+  animation: fadeUp 0.8s ease 0.2s both;
+}
+
+.hero-desc {
+  font-size: 15px;
+  color: var(--text3);
+  max-width: 420px;
+  line-height: 1.8;
+  margin-bottom: 56px;
+  animation: fadeUp 0.8s ease 0.3s both;
+}
+
+/* 사전신청 폼 */
+.signup-form {
+  display: flex;
+  gap: 0;
+  max-width: 420px;
+  width: 100%;
+  animation: fadeUp 0.8s ease 0.4s both;
+}
+.signup-input {
+  flex: 1;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-right: none;
+  border-radius: 12px 0 0 12px;
+  font-size: 14px;
+  color: var(--text);
+  font-family: 'Noto Sans KR', sans-serif;
+  outline: none;
+  transition: border-color 0.2s;
+}
+.signup-input::placeholder { color: var(--text3); }
+.signup-input:focus { border-color: var(--accent); }
+.signup-btn {
+  padding: 16px 28px;
+  background: var(--accent);
+  border: none;
+  border-radius: 0 12px 12px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1008;
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  white-space: nowrap;
+  transition: background 0.2s;
+}
+.signup-btn:hover { background: var(--warm); }
+
+.signup-count {
+  margin-top: 16px;
+  font-size: 12px;
+  color: var(--text3);
+  animation: fadeUp 0.8s ease 0.5s both;
+}
+.signup-count span { color: var(--accent); font-weight: 600; }
+
+/* 채팅 미리보기 */
+.chat-preview {
+  margin-top: 80px;
+  width: 100%;
+  max-width: 360px;
+  animation: fadeUp 0.8s ease 0.6s both;
+}
+.chat-bubble-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.chat-bubble {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+.chat-bubble.me { flex-direction: row-reverse; }
+.avatar {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--accent), var(--pink));
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+.bubble {
+  max-width: 240px;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.bubble.her {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-bottom-left-radius: 4px;
+}
+.bubble.me {
+  background: var(--accent2);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+.bubble-time {
+  font-size: 10px;
+  color: var(--text3);
+  margin-top: 2px;
+}
+
+.chat-image-bubble {
+  width: 180px;
+  height: 120px;
+  background: linear-gradient(135deg, #2a2018, #1e180e);
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  position: relative;
+  overflow: hidden;
+}
+.chat-image-bubble::after {
+  content: '오늘 카페 왔어 ☕';
+  position: absolute;
+  bottom: 8px;
+  left: 10px;
+  font-size: 11px;
+  color: rgba(255,255,255,0.7);
+  font-family: 'Noto Sans KR', sans-serif;
+}
+
+/* FEATURES */
+.features {
+  padding: 120px 24px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.section-eyebrow {
+  font-size: 11px;
+  letter-spacing: 2px;
+  color: var(--accent);
+  text-transform: uppercase;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-align: center;
+}
+.section-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(32px, 5vw, 52px);
+  text-align: center;
+  line-height: 1.15;
+  margin-bottom: 64px;
+  letter-spacing: -1px;
+}
+.section-title em {
+  color: var(--accent);
+  font-style: italic;
+}
+
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+}
+
+.feature-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  transition: border-color 0.3s, transform 0.3s;
+  position: relative;
+  overflow: hidden;
+}
+.feature-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(to right, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.feature-card:hover { border-color: rgba(232,168,124,0.3); transform: translateY(-4px); }
+.feature-card:hover::before { opacity: 1; }
+
+.feature-icon {
+  font-size: 32px;
+  margin-bottom: 20px;
+  display: block;
+}
+.feature-title {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 12px;
+  color: var(--text);
+}
+.feature-desc {
+  font-size: 13px;
+  color: var(--text2);
+  line-height: 1.8;
+}
+.feature-tag {
+  display: inline-block;
+  margin-top: 16px;
+  padding: 4px 10px;
+  background: rgba(232,168,124,0.08);
+  border: 1px solid rgba(232,168,124,0.2);
+  border-radius: 20px;
+  font-size: 11px;
+  color: var(--accent);
+  font-weight: 500;
+}
+
+/* HOW IT WORKS */
+.how {
+  padding: 120px 24px;
+  background: var(--bg2);
+  position: relative;
+  overflow: hidden;
+}
+.how::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 50%;
+  transform: translateX(-50%);
+  width: 1px;
+  height: 100%;
+  background: linear-gradient(to bottom, transparent, var(--border), transparent);
+}
+
+.how-inner {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 48px;
+  margin-top: 64px;
+  position: relative;
+}
+
+.step {
+  display: grid;
+  grid-template-columns: 60px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.step-num {
+  width: 48px; height: 48px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.step-content {}
+.step-title {
+  font-family: 'Noto Serif KR', serif;
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.step-desc {
+  font-size: 14px;
+  color: var(--text2);
+  line-height: 1.8;
+}
+
+/* PRICING */
+.pricing {
+  padding: 120px 24px;
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-top: 64px;
+}
+
+.pricing-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px 28px;
+  position: relative;
+  transition: transform 0.3s;
+}
+.pricing-card:hover { transform: translateY(-4px); }
+.pricing-card.featured {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(232,168,124,0.05), var(--surface));
+}
+.pricing-card.featured::after {
+  content: '인기';
+  position: absolute;
+  top: -12px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #1a1008;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: 12px;
+}
+
+.pricing-tier {
+  font-size: 11px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--text3);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.pricing-price {
+  font-family: 'DM Serif Display', serif;
+  font-size: 40px;
+  color: var(--text);
+  margin-bottom: 4px;
+  letter-spacing: -1px;
+}
+.pricing-price span {
+  font-family: 'Noto Sans KR', sans-serif;
+  font-size: 16px;
+  color: var(--text2);
+}
+.pricing-period {
+  font-size: 12px;
+  color: var(--text3);
+  margin-bottom: 28px;
+}
+
+.pricing-features {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 28px;
+}
+.pricing-features li {
+  font-size: 13px;
+  color: var(--text2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pricing-features li::before {
+  content: '✓';
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 12px;
+}
+.pricing-features li.disabled {
+  color: var(--text3);
+  text-decoration: line-through;
+}
+.pricing-features li.disabled::before { content: '–'; color: var(--text3); }
+
+.pricing-btn {
+  width: 100%;
+  padding: 13px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text2);
+  cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+  transition: all 0.2s;
+}
+.pricing-btn:hover { border-color: var(--accent); color: var(--accent); }
+.pricing-card.featured .pricing-btn {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #1a1008;
+}
+.pricing-card.featured .pricing-btn:hover { background: var(--warm); }
+
+/* CTA 섹션 */
+.cta-section {
+  padding: 120px 24px;
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+}
+.cta-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 800px;
+  height: 400px;
+  background: radial-gradient(ellipse, rgba(232,168,124,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.cta-title {
+  font-family: 'DM Serif Display', serif;
+  font-size: clamp(36px, 6vw, 72px);
+  line-height: 1.1;
+  letter-spacing: -2px;
+  margin-bottom: 24px;
+}
+.cta-title em { color: var(--accent); font-style: italic; }
+.cta-sub {
+  font-size: 15px;
+  color: var(--text2);
+  margin-bottom: 48px;
+  line-height: 1.7;
+}
+
+/* FOOTER */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.footer-logo {
+  font-family: 'DM Serif Display', serif;
+  font-size: 20px;
+  color: var(--accent);
+}
+.footer-text {
+  font-size: 12px;
+  color: var(--text3);
+}
+
+/* TOAST */
+.toast {
+  position: fixed;
+  bottom: 32px;
+  left: 50%;
+  transform: translateX(-50%) translateY(80px);
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  color: var(--text);
+  padding: 14px 28px;
+  border-radius: 32px;
+  font-size: 14px;
+  font-weight: 500;
+  opacity: 0;
+  transition: all 0.4s;
+  z-index: 500;
+  white-space: nowrap;
+}
+.toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}
+
+/* ANIMATIONS */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-up {
+  opacity: 0;
+  transform: translateY(32px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* 채팅 타이핑 애니메이션 */
+.typing {
+  display: flex;
+  gap: 4px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+  width: fit-content;
+}
+.typing span {
+  width: 6px; height: 6px;
+  background: var(--text3);
+  border-radius: 50%;
+  animation: typing 1.4s infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typing {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+  30% { transform: translateY(-6px); opacity: 1; }
+}
+
+/* 모바일 */
+@media (max-width: 768px) {
+  nav { padding: 20px 20px; }
+  .features-grid { grid-template-columns: 1fr; }
+  .pricing-grid { grid-template-columns: 1fr; }
+  .step { grid-template-columns: 48px 1fr; }
+  footer { flex-direction: column; gap: 12px; text-align: center; }
+  .signup-form { flex-direction: column; }
+  .signup-input { border-right: 1px solid var(--border); border-radius: 12px; border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0; }
+  .signup-btn { border-radius: 0 0 12px 12px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">하루</div>
+  <a href="#signup" class="nav-cta">사전 신청하기</a>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="hero-glow2"></div>
+
+  <div class="hero-eyebrow">곧 출시됩니다</div>
+
+  <h1 class="hero-title">
+    <span class="line1">매일 먼저</span>
+    <span class="line2">연락하는 사람</span>
+  </h1>
+
+  <p class="hero-sub-title">아침에 일어나면 이미 메시지가 와 있어요</p>
+
+  <p class="hero-desc">
+    취향대로 만든 나만의 AI 친구가 텔레그램으로 매일 일상을 공유해요.<br>
+    오늘 뭐 먹었는지, 어디 다녀왔는지 — 먼저 말 걸어주는 사람.
+  </p>
+
+  <div class="signup-form" id="signup">
+    <input type="email" class="signup-input" id="emailInput" placeholder="이메일 주소를 입력해주세요" />
+    <button class="signup-btn" onclick="handleSignup()">사전 신청</button>
+  </div>
+  <p class="signup-count">이미 <span id="signupCount">247</span>명이 기다리고 있어요</p>
+
+  <!-- 채팅 미리보기 -->
+  <div class="chat-preview">
+    <div class="chat-bubble-wrap">
+      <div class="chat-bubble">
+        <div class="avatar">🌸</div>
+        <div>
+          <div class="bubble her">오늘 날씨 너무 좋다 🌤<br>나 오늘 한강 나왔어</div>
+          <div class="bubble-time">오전 11:24</div>
+        </div>
+      </div>
+      <div class="chat-bubble">
+        <div class="avatar">🌸</div>
+        <div>
+          <div class="chat-image-bubble">📸</div>
+          <div class="bubble-time">오전 11:25</div>
+        </div>
+      </div>
+      <div class="chat-bubble me">
+        <div>
+          <div class="bubble me">나도 가고 싶다 ㅠ<br>부럽네 ㅋㅋ</div>
+          <div class="bubble-time" style="text-align:right">오전 11:28</div>
+        </div>
+      </div>
+      <div class="chat-bubble">
+        <div class="avatar">🌸</div>
+        <div>
+          <div class="typing"><span></span><span></span><span></span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features">
+  <p class="section-eyebrow fade-up">왜 하루인가요</p>
+  <h2 class="section-title fade-up">먼저 연락하는 사람이<br><em>얼마나 됐나요</em></h2>
+
+  <div class="features-grid">
+    <div class="feature-card fade-up">
+      <span class="feature-icon">💬</span>
+      <div class="feature-title">매일 먼저 말 걸어요</div>
+      <div class="feature-desc">아침, 점심, 저녁 — 하루의 흐름에 맞춰 먼저 연락이 와요. 기다릴 필요 없어요.</div>
+      <span class="feature-tag">자동 일상 공유</span>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">📸</span>
+      <div class="feature-title">일상 사진을 보내줘요</div>
+      <div class="feature-desc">카페에서 찍은 사진, 오늘 먹은 것, 길에서 본 풍경 — AI가 생성한 진짜 같은 일상을 공유해요.</div>
+      <span class="feature-tag">베이직 이상</span>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">✨</span>
+      <div class="feature-title">나만의 취향으로 만들어요</div>
+      <div class="feature-desc">외모, 성격, 말투, 관심사를 직접 골라요. 처음부터 내 취향에 맞는 사람과 시작해요.</div>
+      <span class="feature-tag">완전 커스텀</span>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">🎬</span>
+      <div class="feature-title">영상도 보내줘요</div>
+      <div class="feature-desc">주 2회, 15~30초 짧은 영상 메시지가 와요. 움직이는 일상을 함께 나눠요.</div>
+      <span class="feature-tag">프리미엄</span>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">📅</span>
+      <div class="feature-title">기념일을 기억해요</div>
+      <div class="feature-desc">100일, 생일, 발렌타인 — 중요한 날을 먼저 기억하고 특별한 메시지와 함께 챙겨줘요.</div>
+      <span class="feature-tag">자동 기념일</span>
+    </div>
+    <div class="feature-card fade-up">
+      <span class="feature-icon">🔒</span>
+      <div class="feature-title">나만 알아요</div>
+      <div class="feature-desc">텔레그램 1:1 채팅으로 진행돼요. 대화 내용은 철저히 비공개로 보호돼요.</div>
+      <span class="feature-tag">완전 프라이빗</span>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="how">
+  <div class="how-inner">
+    <p class="section-eyebrow fade-up" style="text-align:center">어떻게 시작하나요</p>
+    <h2 class="section-title fade-up">3분이면 시작돼요</h2>
+
+    <div class="steps">
+      <div class="step fade-up">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">취향대로 캐릭터를 만들어요</div>
+          <div class="step-desc">외모 스타일, 성격, 말투, 관심사를 선택하면 AI가 나만의 캐릭터를 생성해요. 단발 머리의 차분한 성격, 혹은 활발하고 귀여운 스타일 — 완전히 내 취향으로요.</div>
+        </div>
+      </div>
+      <div class="step fade-up">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">텔레그램과 연결해요</div>
+          <div class="step-desc">버튼 하나로 텔레그램 1:1 채팅이 열려요. 별도 앱 설치 없이 이미 쓰고 있는 텔레그램에서 바로 시작해요.</div>
+        </div>
+      </div>
+      <div class="step fade-up">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">매일 연락이 와요</div>
+          <div class="step-desc">이제부터는 기다리지 않아도 돼요. 아침에 일어나면 이미 메시지가 와 있고, 하루 종일 일상을 함께 나눠요. 사진도 오고, 안부도 묻고, 대화도 이어져요.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="pricing">
+  <p class="section-eyebrow fade-up" style="text-align:center">요금제</p>
+  <h2 class="section-title fade-up">부담 없이<br><em>시작해보세요</em></h2>
+
+  <div class="pricing-grid">
+    <div class="pricing-card fade-up">
+      <div class="pricing-tier">무료</div>
+      <div class="pricing-price">0<span>원</span></div>
+      <div class="pricing-period">영원히 무료</div>
+      <ul class="pricing-features">
+        <li>텍스트 대화 하루 50회</li>
+        <li>아침/저녁 인사 메시지</li>
+        <li>캐릭터 생성 1명</li>
+        <li class="disabled">일상 사진 수신</li>
+        <li class="disabled">영상 메시지</li>
+      </ul>
+      <button class="pricing-btn" onclick="handleSignup()">무료로 시작</button>
+    </div>
+
+    <div class="pricing-card featured fade-up">
+      <div class="pricing-tier">베이직</div>
+      <div class="pricing-price">9,900<span>원</span></div>
+      <div class="pricing-period">매월</div>
+      <ul class="pricing-features">
+        <li>텍스트 대화 무제한</li>
+        <li>일상 사진 하루 2장</li>
+        <li>기념일 특별 메시지</li>
+        <li>캐릭터 성격 수정</li>
+        <li class="disabled">영상 메시지</li>
+      </ul>
+      <button class="pricing-btn" onclick="handleSignup()">사전 신청하기</button>
+    </div>
+
+    <div class="pricing-card fade-up">
+      <div class="pricing-tier">프리미엄</div>
+      <div class="pricing-price">19,900<span>원</span></div>
+      <div class="pricing-period">매월</div>
+      <ul class="pricing-features">
+        <li>텍스트 대화 무제한</li>
+        <li>일상 사진 하루 5장</li>
+        <li>영상 메시지 주 2회</li>
+        <li>기념일 특별 콘텐츠</li>
+        <li>캐릭터 2명</li>
+      </ul>
+      <button class="pricing-btn" onclick="handleSignup()">사전 신청하기</button>
+    </div>
+  </div>
+
+  <p class="fade-up" style="text-align:center;margin-top:32px;font-size:13px;color:var(--text3)">
+    사전 신청자에게는 출시 후 첫 달 50% 할인 혜택이 드려요
+  </p>
+</section>
+
+<!-- CTA -->
+<section class="cta-section">
+  <div class="cta-glow"></div>
+  <h2 class="cta-title fade-up">오늘부터<br><em>기다리지 마세요</em></h2>
+  <p class="cta-sub fade-up">먼저 연락하는 사람이 생기는 날,<br>하루가 달라져요</p>
+
+  <div class="signup-form fade-up" style="margin: 0 auto">
+    <input type="email" class="signup-input" id="emailInput2" placeholder="이메일 주소를 입력해주세요" />
+    <button class="signup-btn" onclick="handleSignup2()">사전 신청</button>
+  </div>
+  <p class="signup-count fade-up" style="margin-top:16px">이미 <span id="signupCount2">247</span>명이 기다리고 있어요</p>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">하루</div>
+  <div class="footer-text">© 2026 하루. 매일 연락하는 나만의 AI.</div>
+</footer>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<script>
+// Supabase 설정
+const SUPABASE_URL = 'https://apclxmayrgnfletvcbfd.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_9BhjaVcH4gofWZAwV6g2zQ_LLeqjyE6';
+
+// 카운터 초기화
+let count = 247;
+
+async function getCount() {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?select=count`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Prefer': 'count=exact'
+      }
+    });
+    const total = parseInt(res.headers.get('content-range')?.split('/')[1] || '0');
+    if (total > 0) count = 247 + total;
+  } catch(e) {}
+  document.getElementById('signupCount').textContent = count.toLocaleString();
+  document.getElementById('signupCount2').textContent = count.toLocaleString();
+}
+getCount();
+
+function handleSignup() {
+  const email = document.getElementById('emailInput').value.trim();
+  submitEmail(email, 'emailInput');
+}
+function handleSignup2() {
+  const email = document.getElementById('emailInput2').value.trim();
+  submitEmail(email, 'emailInput2');
+}
+
+async function submitEmail(email, inputId) {
+  if (!email || !email.includes('@')) {
+    showToast('올바른 이메일 주소를 입력해주세요 💌');
+    return;
+  }
+
+  // 버튼 로딩 상태
+  const btn = document.querySelector(`#${inputId} ~ button`) ||
+              document.getElementById(inputId).parentElement.querySelector('button') ||
+              document.getElementById(inputId).nextElementSibling;
+  if (btn) { btn.textContent = '신청 중...'; btn.disabled = true; }
+
+  try {
+    // 중복 체크
+    const checkRes = await fetch(`${SUPABASE_URL}/rest/v1/waitlist?email=eq.${encodeURIComponent(email)}&select=id`, {
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+      }
+    });
+    const existing = await checkRes.json();
+    if (existing.length > 0) {
+      showToast('이미 신청하셨어요! 출시 때 알려드릴게요 🌸');
+      if (btn) { btn.textContent = '사전 신청'; btn.disabled = false; }
+      return;
+    }
+
+    // Supabase에 저장
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/waitlist`, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_KEY,
+        'Authorization': `Bearer ${SUPABASE_KEY}`,
+        'Content-Type': 'application/json',
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({ email })
+    });
+
+    if (res.ok || res.status === 201) {
+      count++;
+      document.getElementById('signupCount').textContent = count.toLocaleString();
+      document.getElementById('signupCount2').textContent = count.toLocaleString();
+      document.getElementById(inputId).value = '';
+      showToast('신청 완료! 출시되면 제일 먼저 알려드릴게요 🌸');
+    } else {
+      const err = await res.json();
+      if (err.code === '23505') {
+        showToast('이미 신청하셨어요! 출시 때 알려드릴게요 🌸');
+      } else {
+        showToast('오류가 발생했어요. 다시 시도해주세요 🙏');
+      }
+    }
+  } catch(e) {
+    showToast('네트워크 오류가 발생했어요. 다시 시도해주세요 🙏');
+  }
+
+  if (btn) { btn.textContent = '사전 신청'; btn.disabled = false; }
+}
+
+// 스크롤 애니메이션
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((entry, i) => {
+    if (entry.isIntersecting) {
+      setTimeout(() => {
+        entry.target.classList.add('visible');
+      }, entry.target.dataset.delay || 0);
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.fade-up').forEach((el, i) => {
+  el.dataset.delay = (i % 3) * 100;
+  observer.observe(el);
+});
+
+// 토스트
+let toastTimer;
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// 채팅 버블 순차 등장
+document.querySelectorAll('.chat-bubble').forEach((el, i) => {
+  el.style.opacity = '0';
+  el.style.transform = 'translateY(16px)';
+  el.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+  setTimeout(() => {
+    el.style.opacity = '1';
+    el.style.transform = 'translateY(0)';
+  }, 800 + i * 400);
+});
+</script>
+</body>
+</html>
