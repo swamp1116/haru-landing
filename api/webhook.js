@@ -1,18 +1,12 @@
 // api/webhook.js
 // Vercel Serverless Function - 텔레그램 봇 웹훅
 
-import { higgsfield, config } from '@higgsfield/client/v2';
-
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
-
-// Higgsfield 인증 설정
-config({
-  apiKey: process.env.HF_API_KEY,
-  apiSecret: process.env.HF_API_SECRET
-});
+const HF_API_KEY = process.env.HF_API_KEY;
+const HF_API_SECRET = process.env.HF_API_SECRET;
 
 const STEPS = ['look', 'personality', 'tone', 'interest', 'nickname', 'name'];
 
@@ -93,12 +87,11 @@ const INTEREST_DESC = {
   drama: '드라마랑 영화를 좋아해. 재밌는 거 추천해주고 같이 보고 싶어해.'
 };
 
-// 외모별 이미지 프롬프트
 const LOOK_PROMPTS = {
-  pure: 'beautiful korean woman, pure innocent style, soft natural makeup, casual cozy outfit, warm natural lighting, photorealistic portrait',
-  sexy: 'beautiful korean woman, elegant sexy style, subtle glamorous makeup, stylish outfit, cinematic lighting, photorealistic portrait',
-  cute: 'beautiful korean woman, cute lovely style, bright smile, colorful casual outfit, soft pastel lighting, photorealistic portrait',
-  cool: 'beautiful korean woman, cool modern style, minimal chic makeup, trendy outfit, urban city background, photorealistic portrait'
+  pure: 'beautiful korean woman, pure innocent style, soft natural makeup, casual cozy outfit, warm natural lighting, photorealistic portrait, high quality',
+  sexy: 'beautiful korean woman, elegant sexy style, subtle glamorous makeup, stylish outfit, cinematic lighting, photorealistic portrait, high quality',
+  cute: 'beautiful korean woman, cute lovely style, bright smile, colorful casual outfit, soft pastel lighting, photorealistic portrait, high quality',
+  cool: 'beautiful korean woman, cool modern style, minimal chic makeup, trendy outfit, urban city background, photorealistic portrait, high quality'
 };
 
 const DAILY_SCENES = [
@@ -110,30 +103,56 @@ const DAILY_SCENES = [
   'shopping street, holding shopping bags, sunny afternoon',
   'by the han river, golden sunset, relaxed',
   'rooftop view, city lights, evening breeze',
-  'cooking in kitchen, cute apron, focused',
+  'cooking in kitchen, cute apron',
   'convenience store, holding snacks, playful expression'
 ];
 
 const NAMES = ['소율', '지안', '다은', '하린', '수아', '예진', '나연', '지수', '서연', '민아'];
 
-// ===== Higgsfield 이미지 생성 (v2) =====
+// ===== Higgsfield 이미지 생성 (직접 fetch) =====
 async function generateImage(lookStyle) {
   try {
     const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
     const basePrompt = LOOK_PROMPTS[lookStyle] || LOOK_PROMPTS.cute;
-    const prompt = `${basePrompt}, ${scene}, high quality, 4k`;
+    const prompt = `${basePrompt}, ${scene}`;
+    const authHeader = `Key ${HF_API_KEY}:${HF_API_SECRET}`;
 
-    const jobSet = await higgsfield.subscribe('flux-pro/kontext/max/text-to-image', {
-      input: {
+    // 이미지 생성 요청
+    const createRes = await fetch('https://platform.higgsfield.ai/higgsfield-ai/soul/standard', {
+      method: 'POST',
+      headers: {
+        'Authorization': authHeader,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
         prompt,
         aspect_ratio: '9:16',
-        safety_tolerance: 2
-      },
-      withPolling: true
+        resolution: '720p'
+      })
     });
 
-    if (jobSet.isCompleted && jobSet.jobs[0]?.results) {
-      return jobSet.jobs[0].results.raw?.url || null;
+    const createData = await createRes.json();
+    console.log('Higgsfield create response:', JSON.stringify(createData));
+
+    const requestId = createData.request_id;
+    if (!requestId) return null;
+
+    // 폴링 (최대 60초)
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+
+      const statusRes = await fetch(`https://platform.higgsfield.ai/requests/${requestId}/status`, {
+        headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
+      });
+      const statusData = await statusRes.json();
+      console.log('Higgsfield status:', statusData.status);
+
+      if (statusData.status === 'completed') {
+        const url = statusData.images?.[0]?.url || statusData.image?.url || null;
+        return url;
+      }
+      if (statusData.status === 'failed' || statusData.status === 'nsfw') return null;
     }
     return null;
   } catch (e) {
