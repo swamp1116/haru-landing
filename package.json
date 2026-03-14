@@ -1,0 +1,7 @@
+{
+  "name": "haru-landing",
+  "version": "1.0.0",
+  "dependencies": {
+    "@higgsfield/client": "latest"
+  }
+}
