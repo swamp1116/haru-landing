@@ -146,7 +146,7 @@ const PHOTO_KEYWORDS = [
   '찍어줘', '보여줘', '얼굴 보고싶', '얼굴보고싶',
   '어떻게 생겼', '지금 어디야', '지금어디야',
   '뭐해', '뭐하고있어', '뭐하고 있어', '뭐하냐',
-  '지금 뭐', '오늘 어디', '오늘어디', '보내줘', '보내줄게'
+  '지금 뭐', '오늘 어디', '오늘어디', '보내줘'
 ];
 function wantsPhoto(text) {
   return PHOTO_KEYWORDS.some(k => text.includes(k));
@@ -1643,19 +1643,17 @@ async function handlePhotoRequest(chatId, user, userText) {
   const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
 
   if (user.is_subscribed) {
-    // 25% 확률로 튕기기 (기대감 유지형)
+    // 25% 확률로 튕기기 (GPT로 자연스럽게 생성)
     if (Math.random() < 0.25) {
-      const teases = [
-        '오늘은 좀 별로야 ㅠ 내일 예쁘게 찍어서 보내줄게 기대해',
-        '지금 노메이크업인데 ㅋㅋ 내일 나갈 때 찍어서 보내줄게',
-        '지금 말고 좀 이따가~ 잠깐만 기다려봐',
-        '지금은 좀 그런데 이따가 보내줄게 약속',
-        '나 지금 진짜 못생겼어 ㅠ 나중에 보내줄게',
-        '오늘 말고 내일 특별한 거 입고 찍어서 보내줄게 ㅎㅎ'
-      ];
-      const tease = teases[Math.floor(Math.random() * teases.length)];
-      await naturalDelay(tease);
-      await sendMessage(chatId, tease);
+      const teasePrompt = await chat(systemPrompt,
+        `사진 보내달라는 말에 귀찮다거나 지금은 좀 별로라며 자연스럽게 튕겨. 
+하지만 내일이나 나중에 보내줄게 하면서 기대감은 남겨.
+딱 1~2문장. 실제 카톡 문자처럼. 
+절대 "고마워", "기대하고 있을게" 같은 공식적인 말 금지.
+그냥 귀찮은 척 툭 던지는 말투로.`
+      );
+      await naturalDelay(teasePrompt);
+      await sendMessage(chatId, teasePrompt);
       return;
     }
     const caption = await chat(systemPrompt,
