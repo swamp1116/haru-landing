@@ -1659,7 +1659,13 @@ async function handlePhotoRequest(chatId, user, userText) {
       return;
     }
     const caption = await chat(systemPrompt,
-      `유저가 "${userText || '사진 보내줘'}" 라고 했어. 사진 보내면서 자연스럽게 짧게 답장해. 히스토리에 있는 내용 절대 반복하지 마. 다양한 길이와 말투로.`
+      `지금 사진을 보내는 상황이야. 딱 1문장만 출력해.
+절대 금지:
+- "유저가 ~라고 했어" 같은 말
+- "이렇게 답장해볼게", "답장해볼게" 같은 말
+- 내가 뭘 할 거라고 설명하는 말
+- 따옴표로 감싼 예시 형태로 출력하는 것
+그냥 실제 카톡 메시지 자체만 출력해. 예: ㅋㅋ 이거봐 / 헐 이상하게 나왔다 / 오래된 거 찾았어`
     );
     await sendMessage(chatId, caption);
     const imageUrl = await generateDailyPhoto(prefs, user.soul_id, userText, caption);
