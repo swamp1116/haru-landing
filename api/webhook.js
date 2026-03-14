@@ -690,7 +690,13 @@ export default async function handler(req, res) {
     prefs[step] = value;
     const nextStep = STEPS[STEPS.indexOf(step) + 1];
 
-    if (nextStep === 'name') {
+    if (nextStep === 'age') {
+      await updateUser(chatId, { prefs, step: 'age' });
+      await sendMessage(chatId, `<code>${progressBar('age')}</code>
+
+🎂 나이를 입력해주세요! (20~60세)
+예) 25`);
+    } else if (nextStep === 'name') {
       await updateUser(chatId, { prefs, step: 'name' });
       const rn = NAMES[Math.floor(Math.random() * NAMES.length)];
       await sendMessage(chatId, `✨ 마지막 단계예요!\n\n랜덤 이름: <b>${rn}</b>\n\n이름이 좋으면 "좋아" 입력, 원하는 이름이 있으면 직접 입력해주세요 😊`);
