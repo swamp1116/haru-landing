@@ -367,6 +367,34 @@ const INTEREST_DESC_MAP = {
   drama: '드라마랑 영화를 좋아해. 재밌는 거 추천해주고 같이 보고 싶어해.'
 };
 
+// ===== 한국 시간 (KST) =====
+function getKSTDate() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst;
+}
+
+function getKSTHour() {
+  return getKSTDate().getHours();
+}
+
+function getKSTDateSeed() {
+  const kst = getKSTDate();
+  return kst.getFullYear() * 10000 + (kst.getMonth() + 1) * 100 + kst.getDate();
+}
+
+// 시간대별 분위기
+function getTimeOfDayContext() {
+  const hour = getKSTHour();
+  if (hour >= 5 && hour < 9) return '이른 아침 (막 일어난 시간대)';
+  if (hour >= 9 && hour < 12) return '오전 (활동 시작)';
+  if (hour >= 12 && hour < 14) return '점심시간';
+  if (hour >= 14 && hour < 18) return '오후';
+  if (hour >= 18 && hour < 21) return '저녁';
+  if (hour >= 21 && hour < 24) return '밤 (하루 마무리 시간)';
+  return '새벽 (늦은 밤)';
+}
+
 // ===== 오늘의 감정 시스템 =====
 const EMOTIONS = ['happy', 'tired', 'excited', 'annoyed', 'sad', 'calm', 'pouty', 'nervous'];
 const EMOTION_DESC = {
@@ -382,8 +410,7 @@ const EMOTION_DESC = {
 
 // 오늘 날짜 기반 감정 결정 (매일 바뀜, 같은 날 동일)
 function getTodayEmotion() {
-  const today = new Date();
-  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const seed = getKSTDateSeed();
   return EMOTIONS[seed % EMOTIONS.length];
 }
 
@@ -429,8 +456,7 @@ const JOB_ACTIVITIES = {
 // 오늘 활동 (날짜+직업 기반 고정)
 function getTodayActivity(job) {
   const activities = JOB_ACTIVITIES[job] || JOB_ACTIVITIES.office_worker;
-  const today = new Date();
-  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const seed = getKSTDateSeed();
   return activities[seed % activities.length];
 }
 
@@ -503,8 +529,7 @@ const JOB_DAILY_OUTFITS = {
 
 function getTodayOutfit(job) {
   const outfits = JOB_DAILY_OUTFITS[job] || JOB_DAILY_OUTFITS.office_worker;
-  const today = new Date();
-  const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate();
+  const seed = getKSTDateSeed();
   return outfits[seed % outfits.length];
 }
 
@@ -516,7 +541,7 @@ const HF_AUTH = () => `Key ${HF_API_KEY}:${HF_API_SECRET}`;
 
 // ===== 시간대별 상황 =====
 function getTimeContext(job) {
-  const hour = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' })).getHours();
+  const hour = getKSTHour();
 
   const contexts = {
     barista: {
@@ -829,6 +854,7 @@ function buildSystemPrompt(prefs, isSubscribed = false) {
   const todayEmotion = getTodayEmotion();
   const emotionDesc = EMOTION_DESC[todayEmotion];
   const todayActivity = getTodayActivity(prefs.job || 'office_worker');
+  const timeOfDay = getTimeOfDayContext();
 
   const base = `너의 이름은 ${name}이야.
 국적: ${nat} | 나이: ${age}세 | MBTI: ${mbti}
@@ -845,11 +871,16 @@ ${personalityPattern}
 [MBTI 대화 스타일]
 ${mbtiStyle}
 
-[오늘 상태]
-감정: ${emotionDesc}
+[현재 시간대]
+지금은 한국 시간으로 ${timeOfDay}이야. 이 시간대에 맞는 자연스러운 대화를 해.
+현재 상황: ${timeCtx.time}
+현재 복장: ${timeCtx.outfit}
+
+[오늘의 감정과 있었던 일 - 매우 중요]
+오늘 감정: ${emotionDesc}
 오늘 있었던 일: ${todayActivity}
-현재 시간대 상황: ${timeCtx.time}
-현재 복장: ${timeCtx.outfit}${userMemory}
+⚠️ 이 내용은 대화 중 딱 한 번만 자연스럽게 언급해. 이미 대화에서 한 번 말했으면 절대 다시 반복하지 마.
+⚠️ 대화 히스토리를 확인해서 이미 언급한 내용은 다시 꺼내지 마.${userMemory}
 
 [대화 규칙 - 매우 중요]
 - 반말을 써. 카톡 문자 보내는 것처럼 편하고 자연스럽게 써.
