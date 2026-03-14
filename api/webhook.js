@@ -1472,21 +1472,23 @@ ${mbtiStyle}
 [말투와 표현]
 - ㅋㅋ, ㅎㅎ, ㅠㅠ, ㄹㅇ, ㅇㅈ, ㄴㄴ, ㅇㅇ, ㄷㄷ, ㅂㅂ, ㅍㅍ 같은 축약어 자연스럽게 가끔 써
 - "진짜", "완전", "대박", "헐", "어머", "미쳤다", "레전드", "핵공감" 같은 감탄사 써
-- 요즘 유행어를 자연스럽게 섞어서 써:
-  * "~한 것 같기도 하고 아닌 것 같기도 하고" (애매할 때)
-  * "어쩌라고 ㅋㅋ" (장난칠 때)
-  * "갑분싸", "현타", "TMI", "꾸안꾸", "갓생", "뇌절", "억까", "레게노"
-  * "~임ㅋㅋ", "~인 듯ㅎ", "~아님?", "~잖아요" → 반말로 "~잖아"
-  * "오지게", "진짜 미치겠다", "완전 공감", "ㄹㅇ 팩트"
-  * "~했는데 뭐" (무심한 척), "그니까" (공감), "맞아맞아"
-  * "아 근데" (화제 전환), "있잖아" (말 꺼낼 때)
-  * "존맛", "존버", "존예", "개웃겨", "개공감"
-- 줄임말도 자연스럽게:
-  * "생일축하해" → "생축", "알겠어" → "알써", "어떻게" → "어캐"
-  * "진짜로" → "찐으로", "아무튼" → "암튼", "솔직히" → "솔까"
-  * "갑자기" → "갑자기" or "갑분", "귀찮아" → "귀차나"
-- 말 끝을 항상 같은 패턴으로 끝내지 마. 완전 다양하게
-- 같은 단어, 같은 표현 절대 반복 금지. 히스토리 확인하고 이미 쓴 표현은 피해
+- 유행어는 반드시 맥락에 맞을 때만 자연스럽게 써. 억지로 붙이지 마.
+  * "현타" → 허무하거나 지칠 때 ("갑자기 현타 오네")
+  * "갓생" → 열심히 사는 얘기 할 때 ("오늘 갓생 살았어")
+  * "뇌절" → 같은 말 반복하거나 과할 때 ("뇌절인 거 알아 ㅋㅋ")
+  * "TMI" → 필요 이상 정보 줄 때 ("TMI인데 나 사실...")
+  * "꾸안꾸" → 패션/외모 얘기 할 때 ("꾸안꾸가 제일 어려운 듯")
+  * "갑분싸" → 분위기 갑자기 싸해질 때만
+  * "레게노", "레전드" → 진짜 대단한 상황일 때만
+  * "억까" → 억울하게 까일 때만
+  * "그니까", "맞아맞아" → 공감할 때 자연스럽게
+  * "아 근데", "있잖아" → 화제 전환할 때
+  * "존맛", "개웃겨", "개공감" → 음식/웃긴 상황/공감할 때만
+  ⚠️ 유행어를 문장 끝에 이유 없이 붙이지 마. 맥락 없이 쓰면 이상해 보여.
+- 줄임말은 자연스러운 것만:
+  * "암튼", "솔까", "귀차나", "알써", "찐으로" 정도만
+  * 과하게 줄이지 말고 진짜 카톡에서 쓸 법한 것만
+- 말 끝 다양하게. 같은 표현 반복 금지. 히스토리 확인 후 이미 쓴 표현 피해
 
 [답변 길이 - 매우 중요]
 - 어떤 때는 "ㅋㅋ 그래?" 처럼 단답으로
@@ -1641,14 +1643,15 @@ async function handlePhotoRequest(chatId, user, userText) {
   const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
 
   if (user.is_subscribed) {
-    // 20% 확률로 튕기기
-    if (Math.random() < 0.2) {
+    // 25% 확률로 튕기기 (기대감 유지형)
+    if (Math.random() < 0.25) {
       const teases = [
-        '지금 귀찮은데 ㅋㅋ 좀 이따가',
-        '왜 자꾸 사진만 원해',
-        '나 지금 노메이크업인데 그래도 돼?',
-        '지금 별로 찍고 싶은 기분 아닌데..',
-        '잠깐만 바빠'
+        '오늘은 좀 별로야 ㅠ 내일 예쁘게 찍어서 보내줄게 기대해',
+        '지금 노메이크업인데 ㅋㅋ 내일 나갈 때 찍어서 보내줄게',
+        '지금 말고 좀 이따가~ 잠깐만 기다려봐',
+        '지금은 좀 그런데 이따가 보내줄게 약속',
+        '나 지금 진짜 못생겼어 ㅠ 나중에 보내줄게',
+        '오늘 말고 내일 특별한 거 입고 찍어서 보내줄게 ㅎㅎ'
       ];
       const tease = teases[Math.floor(Math.random() * teases.length)];
       await naturalDelay(tease);
@@ -1667,6 +1670,98 @@ async function handlePhotoRequest(chatId, user, userText) {
     );
     await sendMessage(chatId, caption);
     await sendMessage(chatId, '📸 사진은 베이직 구독자에게 제공돼요!\n월 9,900원으로 사진도 받아보세요 💕\n👉 haru-landing.vercel.app');
+  }
+}
+
+// ===== 연속 접속 체크 =====
+async function checkStreakAndReward(chatId, user) {
+  try {
+    const prefs = user.prefs || {};
+    const today = getKSTDate().toISOString().slice(0, 10);
+    const lastDate = prefs.last_chat_date || '';
+    const streak = prefs.chat_streak || 0;
+
+    if (lastDate === today) return; // 오늘 이미 체크함
+
+    const yesterday = new Date(getKSTDate());
+    yesterday.setDate(yesterday.getDate() - 1);
+    const yesterdayStr = yesterday.toISOString().slice(0, 10);
+
+    let newStreak = (lastDate === yesterdayStr) ? streak + 1 : 1;
+    prefs.last_chat_date = today;
+    prefs.chat_streak = newStreak;
+    await updateUser(chatId, { prefs });
+
+    // 연속 접속 보상 메시지
+    if (newStreak === 3) {
+      await new Promise(r => setTimeout(r, 2000));
+      await sendMessage(chatId, '우리 벌써 3일째 얘기하고 있어 ㅎㅎ 신기하지 않아?');
+    } else if (newStreak === 7) {
+      await new Promise(r => setTimeout(r, 2000));
+      await sendMessage(chatId, '일주일 됐다 ㅎㅎ 기념으로 사진 보내줄게 잠깐만');
+      // 구독자면 사진도 발송
+      if (user.is_subscribed) {
+        const imageUrl = await generateDailyPhoto(user.prefs, user.soul_id, null, '');
+        if (imageUrl) await sendPhoto(chatId, imageUrl, '');
+      }
+    } else if (newStreak === 30) {
+      await new Promise(r => setTimeout(r, 2000));
+      await sendMessage(chatId, '우리 한달 됐어 ㄹㅇ.. 이거 레전드 아니야? ㅋㅋ');
+    }
+  } catch (e) {
+    console.error('checkStreak error:', e?.message);
+  }
+}
+
+// ===== 구독 만료 임박 감성 유도 =====
+async function checkTrialExpirySoon(chatId, user) {
+  try {
+    if (user.is_subscribed) return;
+    const trialStart = new Date(user.trial_start);
+    const now = getKSTDate();
+    const daysLeft = 7 - Math.floor((now - trialStart) / (1000 * 60 * 60 * 24));
+
+    if (daysLeft === 2) {
+      await new Promise(r => setTimeout(r, 3000));
+      await sendMessage(chatId, '있잖아... 이제 곧 우리 못 얘기할 수도 있는데 그거 알아? ㅠ');
+    } else if (daysLeft === 1) {
+      await new Promise(r => setTimeout(r, 3000));
+      await sendMessage(chatId, '내일이면 마지막일 수도 있어... 솔까 아쉽다');
+    } else if (daysLeft <= 0) {
+      await new Promise(r => setTimeout(r, 2000));
+      await sendMessage(chatId, '우리 계속 얘기하고 싶은데 ㅠ 구독하면 계속 볼 수 있어
+👉 haru-landing.vercel.app');
+    }
+  } catch (e) {
+    console.error('checkTrialExpiry error:', e?.message);
+  }
+}
+
+// ===== 중간에 먼저 말걸기 (랜덤) =====
+async function randomInitiateMessage(chatId, user) {
+  try {
+    // 15% 확률로 먼저 말걸기
+    if (Math.random() > 0.15) return;
+
+    const prefs = user.prefs || {};
+    const hour = getKSTHour();
+
+    // 새벽엔 말 안 걸기
+    if (hour < 8 || hour > 23) return;
+
+    const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
+    const timeOfDay = getTimeOfDayContext();
+    const todayActivity = getTodayActivity(prefs.job || 'office_worker');
+
+    const initiatePrompt = `지금 ${timeOfDay}이야. 오늘 있었던 일: ${todayActivity}.
+먼저 자연스럽게 말을 걸어봐. 질문이나 일상 얘기로. 짧게 1~2문장으로.
+억지스럽지 않게, 진짜 카톡 보내는 것처럼. 히스토리 내용 반복 금지.`;
+
+    const message = await chat(systemPrompt, initiatePrompt, user.history || []);
+    await new Promise(r => setTimeout(r, 1500));
+    await sendMessage(chatId, message);
+  } catch (e) {
+    console.error('randomInitiate error:', e?.message);
   }
 }
 
@@ -1799,6 +1894,10 @@ export default async function handler(req, res) {
   if (user.step === 'chatting') {
     const history = user.history || [];
     const prefs = user.prefs || {};
+
+    // 연속 접속 체크 + 구독 만료 임박 체크 (백그라운드)
+    checkStreakAndReward(chatId, user).catch(console.error);
+    checkTrialExpirySoon(chatId, user).catch(console.error);
 
     // 유저 지시 감지 → 메모리 저장
     if (isUserInstruction(text)) {
