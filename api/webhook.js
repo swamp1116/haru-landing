@@ -1,14 +1,18 @@
 // api/webhook.js
 // Vercel Serverless Function - 텔레그램 봇 웹훅
 
-import { HiggsfieldClient } from '@higgsfield/client';
+import { higgsfield, config } from '@higgsfield/client/v2';
 
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SUPABASE_KEY = process.env.SUPABASE_SERVICE_KEY;
-const HF_API_KEY = process.env.HF_API_KEY;
-const HF_API_SECRET = process.env.HF_API_SECRET;
+
+// Higgsfield 인증 설정
+config({
+  apiKey: process.env.HF_API_KEY,
+  apiSecret: process.env.HF_API_SECRET
+});
 
 const STEPS = ['look', 'personality', 'tone', 'interest', 'nickname', 'name'];
 
@@ -91,55 +95,49 @@ const INTEREST_DESC = {
 
 // 외모별 이미지 프롬프트
 const LOOK_PROMPTS = {
-  pure: 'beautiful korean woman, pure innocent style, soft natural makeup, casual cozy outfit, warm natural lighting, photorealistic',
-  sexy: 'beautiful korean woman, elegant sexy style, subtle glamorous makeup, stylish outfit, cinematic lighting, photorealistic',
-  cute: 'beautiful korean woman, cute lovely style, bright smile, colorful casual outfit, soft pastel lighting, photorealistic',
-  cool: 'beautiful korean woman, cool modern style, minimal chic makeup, trendy outfit, urban city background, photorealistic'
+  pure: 'beautiful korean woman, pure innocent style, soft natural makeup, casual cozy outfit, warm natural lighting, photorealistic portrait',
+  sexy: 'beautiful korean woman, elegant sexy style, subtle glamorous makeup, stylish outfit, cinematic lighting, photorealistic portrait',
+  cute: 'beautiful korean woman, cute lovely style, bright smile, colorful casual outfit, soft pastel lighting, photorealistic portrait',
+  cool: 'beautiful korean woman, cool modern style, minimal chic makeup, trendy outfit, urban city background, photorealistic portrait'
 };
 
-// 일상 장면 (랜덤)
 const DAILY_SCENES = [
   'sitting in a cozy cafe, holding a latte, warm smile',
-  'walking in a park, autumn leaves falling, casual stroll',
-  'at home on a cozy sofa, reading a book, soft lamplight',
-  'mirror selfie in bedroom, cute pose, natural lighting',
-  'at a restaurant, enjoying delicious food, happy expression',
+  'walking in a park, autumn leaves, casual stroll',
+  'at home on a cozy sofa, soft lamplight',
+  'mirror selfie in bedroom, cute pose',
+  'at a restaurant, enjoying food, happy expression',
   'shopping street, holding shopping bags, sunny afternoon',
-  'by the han river, golden sunset, relaxed and peaceful',
-  'convenience store, holding snacks, playful expression',
+  'by the han river, golden sunset, relaxed',
   'rooftop view, city lights, evening breeze',
-  'cooking in kitchen, cute apron, focused and happy'
+  'cooking in kitchen, cute apron, focused',
+  'convenience store, holding snacks, playful expression'
 ];
 
 const NAMES = ['소율', '지안', '다은', '하린', '수아', '예진', '나연', '지수', '서연', '민아'];
 
-// ===== Higgsfield 이미지 생성 =====
+// ===== Higgsfield 이미지 생성 (v2) =====
 async function generateImage(lookStyle) {
   try {
-    const client = new HiggsfieldClient({
-      apiKey: HF_API_KEY,
-      apiSecret: HF_API_SECRET
-    });
-
     const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
     const basePrompt = LOOK_PROMPTS[lookStyle] || LOOK_PROMPTS.cute;
-    const prompt = `${basePrompt}, ${scene}, high quality, 4k, natural photo`;
+    const prompt = `${basePrompt}, ${scene}, high quality, 4k`;
 
-    const jobSet = await client.generate('/v1/text2image/soul', {
-      prompt,
-      negative_prompt: 'ugly, blurry, bad quality, nsfw, nude, deformed',
-      width_and_height: '768x1024',
-      quality: 'HD',
-      batch_size: 1
-    }, { withPolling: true });
+    const jobSet = await higgsfield.subscribe('flux-pro/kontext/max/text-to-image', {
+      input: {
+        prompt,
+        aspect_ratio: '9:16',
+        safety_tolerance: 2
+      },
+      withPolling: true
+    });
 
-    if (jobSet && jobSet.jobs && jobSet.jobs[0]) {
-      const result = jobSet.jobs[0].results;
-      return result?.raw?.url || result?.url || null;
+    if (jobSet.isCompleted && jobSet.jobs[0]?.results) {
+      return jobSet.jobs[0].results.raw?.url || null;
     }
     return null;
   } catch (e) {
-    console.error('Higgsfield error:', e);
+    console.error('Higgsfield error:', e?.message || e);
     return null;
   }
 }
