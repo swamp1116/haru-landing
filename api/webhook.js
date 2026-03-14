@@ -1121,7 +1121,7 @@ async function initCharacter(chatId, prefs) {
 }
 
 // ===== 장면 추출 =====
-async function extractScene(userText) {
+async function extractScene(userText, characterContext = '') {
   try {
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -1130,9 +1130,23 @@ async function extractScene(userText) {
         model: 'gpt-4o-mini',
         messages: [{
           role: 'user',
-          content: `유저가 "${userText}" 라고 했어. 이 메시지에서 사진 장면을 영어로 짧게 묘사해줘. 장면 묘사만 출력해. 예: "eating Korean food at restaurant, happy expression"`
+          content: `캐릭터 상황: ${characterContext}
+유저 메시지: "${userText}"
+
+위 상황을 바탕으로 사진 배경/장면을 영어로 묘사해줘.
+반드시 캐릭터가 있는 장소와 배경이 실제 상황과 일치해야 해.
+
+예시:
+- "집에서 요리 중" → "indoor kitchen background, cooking at home, kitchen appliances visible"
+- "카페에서" → "cozy cafe interior, coffee shop background, warm lighting"
+- "연습실에서" → "dance practice room, mirrors on wall, wooden floor"
+- "병원에서" → "hospital corridor, clinical environment"
+- "집에서 쉬는 중" → "cozy home interior, living room or bedroom background"
+- "밖에서 산책 중" → "outdoor park, natural background, fresh air"
+
+장면/배경 묘사만 영어로 출력해. 인물 설명은 하지마.`
         }],
-        max_tokens: 60, temperature: 0.3
+        max_tokens: 80, temperature: 0.2
       })
     });
     const data = await res.json();
@@ -1143,13 +1157,21 @@ async function extractScene(userText) {
 }
 
 // ===== 일상 사진 생성 =====
-async function generateDailyPhoto(prefs, soulId, userText = null) {
+async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '') {
   try {
     const timeCtx = getTimeContext(prefs.job || 'office_worker');
     const outfit = timeCtx.outfit || getTodayOutfit(prefs.job || 'office_worker');
-    const scene = userText ? await extractScene(userText) : DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+
+    // 대화 맥락을 장면 추출에 전달
+    const characterContext = botContext || timeCtx.time;
+    const scene = userText
+      ? await extractScene(userText, characterContext)
+      : DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+
     const base = buildBasePrompt(prefs);
-    const prompt = `${base}, ${outfit}, ${scene}, casual UGC style selfie photo, natural environment background, authentic candid feel, phone camera quality, slightly imperfect real life photo, not studio, not posed professionally, photorealistic`;
+    // 배우급 미인 고정
+    const beautyBoost = 'extremely beautiful face, actress-level beauty, flawless skin, perfect facial features, stunning appearance';
+    const prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, background must match the scene context exactly, casual UGC selfie style, authentic candid feel, phone camera quality, natural lighting, photorealistic, not studio background`;
 
     const body = { prompt, aspect_ratio: '9:16', resolution: '720p' };
     if (soulId) { body.custom_reference_id = soulId; body.custom_reference_strength = 0.9; }
@@ -1448,7 +1470,8 @@ async function handlePhotoRequest(chatId, user, userText) {
 
   if (user.is_subscribed) {
     await sendMessage(chatId, caption);
-    const imageUrl = await generateDailyPhoto(prefs, user.soul_id, userText);
+    // caption(봇의 현재 상황 답변)을 장면 추출 맥락으로 전달
+    const imageUrl = await generateDailyPhoto(prefs, user.soul_id, userText, caption);
     if (imageUrl) await sendPhoto(chatId, imageUrl, '');
   } else {
     await sendMessage(chatId, caption);
