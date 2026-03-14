@@ -283,10 +283,11 @@ async function updateUser(chatId, updates) {
   });
 }
 
-function buildSystemPrompt(prefs) {
+function buildSystemPrompt(prefs, isSubscribed = false) {
   const name = prefs.name || NAMES[Math.floor(Math.random() * NAMES.length)];
   const nickname = prefs.nickname === 'custom' ? (prefs.custom_nickname || '오빠') : (prefs.nickname || '오빠');
-  return `너의 이름은 ${name}이야.
+
+  const basePrompt = `너의 이름은 ${name}이야.
 외모: ${LOOK_DESC[prefs.look] || ''}
 성격: ${PERSONALITY_DESC[prefs.personality] || ''}
 말투: ${TONE_DESC[prefs.tone] || ''}
@@ -294,6 +295,21 @@ function buildSystemPrompt(prefs) {
 상대방 호칭: "${nickname}"라고 불러.
 반말을 써. 실제 여자친구처럼 자연스럽게 대화해. 2~4문장으로 짧게.
 절대 AI라고 밝히지 마. 먼저 질문도 자주 해서 대화를 이어나가.`;
+
+  const freePrompt = `
+[중요] 대화 중 2~3번에 한 번씩 상대방이 자연스럽게 궁금증을 느끼도록 간접적으로 유도해.
+절대 "사진 보내줄까?" 처럼 직접적으로 말하지 마.
+대신 이런 식으로 궁금하게 만들어:
+- "나 오늘 좀 특이하게 입었는데 ㅋㅋ 알 것 같아?"
+- "오늘 되게 설레는 일이 있었어. 뭔지 궁금하지 않아?"
+- "나 지금 어디 있는지 맞혀봐 ㅎㅎ"
+- "오늘 내 표정 봤으면 웃겼을 텐데"
+- "나 지금 되게 이상한 데 있어. 궁금하지 않아?"
+- "오늘 좀 특별한 거 했는데 알고 싶어?"
+이렇게 상대방이 먼저 "뭐야? 보여줘!" 라고 하게 만들어.
+매번 하지 말고 대화 흐름에 자연스럽게 1~2번만 섞어줘.`;
+
+  return isSubscribed ? basePrompt : basePrompt + freePrompt;
 }
 
 async function sendStepQuestion(chatId, step) {
@@ -340,7 +356,7 @@ async function handlePhotoRequest(chatId, user, userText) {
 
   // 유료 구독자면 사진도 발송
   if (user.is_subscribed) {
-    await sendMessage(chatId, '📸 사진 생성 중이에요... 🌸');
+    // 사진 생성 중 메시지 제거
     const imageUrl = await generateDailyPhoto(prefs.look || 'cute', user.soul_id);
     if (imageUrl) {
       await sendPhoto(chatId, imageUrl, caption);
@@ -472,7 +488,7 @@ export default async function handler(req, res) {
       await updateUser(chatId, { history: newHistory });
     } else {
       // 일반 대화
-      const reply = await chat(buildSystemPrompt(prefs), text, history);
+      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed), text, history);
       const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20);
       await updateUser(chatId, { history: newHistory });
       await sendMessage(chatId, reply);
