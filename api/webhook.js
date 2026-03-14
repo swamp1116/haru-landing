@@ -121,6 +121,54 @@ const DAILY_SCENES = [
 ];
 
 const NAMES = ['소율', '지안', '다은', '하린', '수아', '예진', '나연', '지수', '서연', '민아'];
+
+// 날짜별 고정 outfit 목록
+const OUTFITS = {
+  pure: [
+    'wearing a white flowy dress, soft pastel cardigan',
+    'wearing a light blue oversized sweater and white jeans',
+    'wearing a floral midi skirt and white blouse',
+    'wearing a soft pink knit top and beige trousers',
+    'wearing a white linen shirt dress',
+    'wearing a cream colored turtleneck and light gray skirt',
+    'wearing a pastel lavender hoodie and white shorts'
+  ],
+  sexy: [
+    'wearing a sleek black bodycon dress',
+    'wearing a deep red wrap dress',
+    'wearing a fitted blazer and high waist pants',
+    'wearing a satin slip dress in emerald green',
+    'wearing a stylish black crop top and tailored trousers',
+    'wearing a chic off-shoulder top and leather skirt',
+    'wearing a sophisticated navy blue midi dress'
+  ],
+  cute: [
+    'wearing a pastel pink hoodie and denim shorts',
+    'wearing a cute strawberry print dress',
+    'wearing a yellow cardigan and white pleated skirt',
+    'wearing a colorful striped top and jeans',
+    'wearing a baby blue ruffle blouse and shorts',
+    'wearing a cute polka dot dress',
+    'wearing a mint green oversized tee and leggings'
+  ],
+  cool: [
+    'wearing an all-black outfit, leather jacket',
+    'wearing a grey oversized hoodie and cargo pants',
+    'wearing a white graphic tee and wide-leg jeans',
+    'wearing a sleek monochrome beige outfit',
+    'wearing a black turtleneck and tailored trousers',
+    'wearing a denim jacket and straight-leg jeans',
+    'wearing a minimalist white shirt and black wide-leg pants'
+  ]
+};
+
+// 오늘 날짜 기준 outfit 가져오기 (같은 날 같은 outfit)
+function getTodayOutfit(lookStyle) {
+  const outfits = OUTFITS[lookStyle] || OUTFITS.cute;
+  const today = new Date();
+  const dayOfYear = Math.floor((today - new Date(today.getFullYear(), 0, 0)) / 86400000);
+  return outfits[dayOfYear % outfits.length];
+}
 const HF_AUTH = () => `Key ${HF_API_KEY}:${HF_API_SECRET}`;
 
 // ===== Higgsfield 기준 이미지 생성 =====
@@ -177,12 +225,51 @@ async function createSoulId(imageUrl, name) {
   }
 }
 
-// ===== 일상 사진 생성 (SoulId 사용) =====
-async function generateDailyPhoto(lookStyle, soulId) {
+// ===== GPT로 장면 추출 =====
+async function extractScene(userText) {
   try {
-    const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: `유저가 "${userText}" 라고 했어.
+이 메시지에서 사진 장면을 영어로 짧게 묘사해줘.
+예시:
+- "밥 먹는 사진" → "eating delicious Korean food at a restaurant, happy expression"
+- "카페 사진" → "sitting in a cozy cafe, holding a latte, warm smile"
+- "운동하는 거" → "at gym, wearing workout clothes, energetic pose"
+- "집에 있어" → "at home on a cozy sofa, casual outfit, relaxed"
+- "산책 중" → "walking in a park, casual outfit, sunny day"
+장면 묘사만 영어로 짧게 출력해. 다른 말 하지마.`
+        }],
+        max_tokens: 100,
+        temperature: 0.3
+      })
+    });
+    const data = await res.json();
+    return data.choices[0].message.content.trim();
+  } catch (e) {
+    // 실패하면 랜덤 장면
+    return DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+  }
+}
+
+// ===== 일상 사진 생성 (SoulId 사용) =====
+async function generateDailyPhoto(lookStyle, soulId, userText = null) {
+  try {
+    // 오늘 날짜 기준 고정 outfit
+    const outfit = getTodayOutfit(lookStyle);
+
+    // 유저 메시지에서 장면 추출, 없으면 랜덤
+    const scene = userText
+      ? await extractScene(userText)
+      : DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+
     const basePrompt = LOOK_PROMPTS[lookStyle] || LOOK_PROMPTS.cute;
-    const prompt = `${basePrompt}, ${scene}`;
+    const prompt = `${basePrompt}, ${outfit}, ${scene}`;
 
     const body = { prompt, aspect_ratio: '9:16', resolution: '720p' };
 
@@ -357,7 +444,7 @@ async function handlePhotoRequest(chatId, user, userText) {
   // 유료 구독자면 사진도 발송
   if (user.is_subscribed) {
     // 사진 생성 중 메시지 제거
-    const imageUrl = await generateDailyPhoto(prefs.look || 'cute', user.soul_id);
+    const imageUrl = await generateDailyPhoto(prefs.look || 'cute', user.soul_id, userText);
     if (imageUrl) {
       await sendPhoto(chatId, imageUrl, caption);
     } else {
