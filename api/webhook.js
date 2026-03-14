@@ -1729,8 +1729,7 @@ async function checkTrialExpirySoon(chatId, user) {
       await sendMessage(chatId, '내일이면 마지막일 수도 있어... 솔까 아쉽다');
     } else if (daysLeft <= 0) {
       await new Promise(r => setTimeout(r, 2000));
-      await sendMessage(chatId, '우리 계속 얘기하고 싶은데 ㅠ 구독하면 계속 볼 수 있어
-👉 haru-landing.vercel.app');
+      await sendMessage(chatId, '우리 계속 얘기하고 싶은데 ㅠ 구독하면 계속 볼 수 있어\n👉 haru-landing.vercel.app');
     }
   } catch (e) {
     console.error('checkTrialExpiry error:', e?.message);
