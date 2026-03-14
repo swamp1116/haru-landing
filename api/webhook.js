@@ -10,6 +10,19 @@ const HF_API_SECRET = process.env.HF_API_SECRET;
 
 const STEPS = ['look', 'personality', 'tone', 'interest', 'nickname', 'name'];
 
+// 사진 요청 키워드
+const PHOTO_KEYWORDS = [
+  '사진', '셀카', '셀피', '사진보내', '사진 보내',
+  '찍어줘', '보여줘', '얼굴 보고싶', '얼굴보고싶',
+  '어떻게 생겼', '지금 어디야', '지금어디야',
+  '뭐해', '뭐하고있어', '뭐하고 있어', '뭐하냐',
+  '지금 뭐', '오늘 어디', '오늘어디'
+];
+
+function wantsPhoto(text) {
+  return PHOTO_KEYWORDS.some(k => text.includes(k));
+}
+
 const OPTIONS = {
   look: {
     question: '💕 어떤 외모 스타일이 좋아요?',
@@ -108,57 +121,106 @@ const DAILY_SCENES = [
 ];
 
 const NAMES = ['소율', '지안', '다은', '하린', '수아', '예진', '나연', '지수', '서연', '민아'];
+const HF_AUTH = () => `Key ${HF_API_KEY}:${HF_API_SECRET}`;
 
-// ===== Higgsfield 이미지 생성 (직접 fetch) =====
-async function generateImage(lookStyle) {
+// ===== Higgsfield 기준 이미지 생성 =====
+async function generateBaseImage(lookStyle) {
+  try {
+    const prompt = `${LOOK_PROMPTS[lookStyle] || LOOK_PROMPTS.cute}, front facing, clear face, neutral background, for character reference`;
+    const res = await fetch('https://platform.higgsfield.ai/higgsfield-ai/soul/standard', {
+      method: 'POST',
+      headers: { 'Authorization': HF_AUTH(), 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ prompt, aspect_ratio: '1:1', resolution: '720p' })
+    });
+    const data = await res.json();
+    const requestId = data.request_id;
+    if (!requestId) return null;
+    return await pollImage(requestId);
+  } catch (e) {
+    console.error('generateBaseImage error:', e?.message);
+    return null;
+  }
+}
+
+// ===== SoulId 생성 =====
+async function createSoulId(imageUrl, name) {
+  try {
+    const res = await fetch('https://platform.higgsfield.ai/v1/soul-ids', {
+      method: 'POST',
+      headers: { 'Authorization': HF_AUTH(), 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        name: name || 'character',
+        input_images: [{ type: 'image_url', image_url: imageUrl }]
+      })
+    });
+    const data = await res.json();
+    console.log('SoulId create response:', JSON.stringify(data));
+    const requestId = data.request_id;
+    if (!requestId) return null;
+
+    // SoulId 폴링
+    for (let i = 0; i < 20; i++) {
+      await new Promise(r => setTimeout(r, 3000));
+      const statusRes = await fetch(`https://platform.higgsfield.ai/requests/${requestId}/status`, {
+        headers: { 'Authorization': HF_AUTH(), 'Accept': 'application/json' }
+      });
+      const statusData = await statusRes.json();
+      if (statusData.status === 'completed') {
+        return statusData.soul_id || statusData.id || statusData.data?.id || null;
+      }
+      if (statusData.status === 'failed') return null;
+    }
+    return null;
+  } catch (e) {
+    console.error('createSoulId error:', e?.message);
+    return null;
+  }
+}
+
+// ===== 일상 사진 생성 (SoulId 사용) =====
+async function generateDailyPhoto(lookStyle, soulId) {
   try {
     const scene = DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
     const basePrompt = LOOK_PROMPTS[lookStyle] || LOOK_PROMPTS.cute;
     const prompt = `${basePrompt}, ${scene}`;
-    const authHeader = `Key ${HF_API_KEY}:${HF_API_SECRET}`;
 
-    // 이미지 생성 요청
-    const createRes = await fetch('https://platform.higgsfield.ai/higgsfield-ai/soul/standard', {
-      method: 'POST',
-      headers: {
-        'Authorization': authHeader,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({
-        prompt,
-        aspect_ratio: '9:16',
-        resolution: '720p'
-      })
-    });
+    const body = { prompt, aspect_ratio: '9:16', resolution: '720p' };
 
-    const createData = await createRes.json();
-    console.log('Higgsfield create response:', JSON.stringify(createData));
-
-    const requestId = createData.request_id;
-    if (!requestId) return null;
-
-    // 폴링 (최대 60초)
-    for (let i = 0; i < 20; i++) {
-      await new Promise(r => setTimeout(r, 3000));
-
-      const statusRes = await fetch(`https://platform.higgsfield.ai/requests/${requestId}/status`, {
-        headers: { 'Authorization': authHeader, 'Accept': 'application/json' }
-      });
-      const statusData = await statusRes.json();
-      console.log('Higgsfield status:', statusData.status);
-
-      if (statusData.status === 'completed') {
-        const url = statusData.images?.[0]?.url || statusData.image?.url || null;
-        return url;
-      }
-      if (statusData.status === 'failed' || statusData.status === 'nsfw') return null;
+    // SoulId 있으면 일관성 유지
+    if (soulId) {
+      body.custom_reference_id = soulId;
+      body.custom_reference_strength = 0.85;
     }
-    return null;
+
+    const res = await fetch('https://platform.higgsfield.ai/higgsfield-ai/soul/standard', {
+      method: 'POST',
+      headers: { 'Authorization': HF_AUTH(), 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    const requestId = data.request_id;
+    if (!requestId) return null;
+    return await pollImage(requestId);
   } catch (e) {
-    console.error('Higgsfield error:', e?.message || e);
+    console.error('generateDailyPhoto error:', e?.message);
     return null;
   }
+}
+
+// ===== 이미지 폴링 =====
+async function pollImage(requestId) {
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 3000));
+    const statusRes = await fetch(`https://platform.higgsfield.ai/requests/${requestId}/status`, {
+      headers: { 'Authorization': HF_AUTH(), 'Accept': 'application/json' }
+    });
+    const statusData = await statusRes.json();
+    if (statusData.status === 'completed') {
+      return statusData.images?.[0]?.url || statusData.image?.url || null;
+    }
+    if (statusData.status === 'failed' || statusData.status === 'nsfw') return null;
+  }
+  return null;
 }
 
 // ===== Telegram =====
@@ -209,7 +271,7 @@ async function createUser(chatId, username) {
   await fetch(`${SUPABASE_URL}/rest/v1/users`, {
     method: 'POST',
     headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json', 'Prefer': 'return=minimal' },
-    body: JSON.stringify({ chat_id: String(chatId), username: username || '', step: 'look', prefs: {}, history: [], trial_start: new Date().toISOString(), is_subscribed: false })
+    body: JSON.stringify({ chat_id: String(chatId), username: username || '', step: 'look', prefs: {}, history: [], trial_start: new Date().toISOString(), is_subscribed: false, soul_id: null, base_image_url: null })
   });
 }
 
@@ -246,20 +308,49 @@ function isTrialExpired(trialStart) {
   return (new Date() - new Date(trialStart)) / (1000 * 60 * 60 * 24) > 7;
 }
 
-async function handlePhotoRequest(chatId, user) {
-  if (!user.is_subscribed && isTrialExpired(user.trial_start)) {
-    await sendMessage(chatId, '📸 사진은 베이직 구독자에게 제공돼요!\n\n월 9,900원으로 하루 2장 받아보세요 💕\n👉 haru-landing.vercel.app');
-    return;
+// ===== 캐릭터 완성 후 SoulId 초기화 =====
+async function initCharacter(chatId, prefs) {
+  try {
+    // 1. 기준 이미지 생성
+    const baseImageUrl = await generateBaseImage(prefs.look || 'cute');
+    if (!baseImageUrl) return;
+
+    // 2. SoulId 생성
+    const soulId = await createSoulId(baseImageUrl, prefs.name || 'character');
+
+    // 3. 저장
+    await updateUser(chatId, { base_image_url: baseImageUrl, soul_id: soulId });
+  } catch (e) {
+    console.error('initCharacter error:', e?.message);
   }
+}
+
+// ===== 사진 요청 처리 =====
+async function handlePhotoRequest(chatId, user, userText) {
   const prefs = user.prefs || {};
   const systemPrompt = buildSystemPrompt(prefs);
-  const caption = await chat(systemPrompt, '지금 일상 사진을 찍어서 보내주는 상황이야. 사진과 함께 보낼 짧은 메시지를 1~2문장으로 써줘.');
-  await sendMessage(chatId, '📸 사진 생성 중이에요... 잠깐만요 🌸');
-  const imageUrl = await generateImage(prefs.look || 'cute');
-  if (imageUrl) {
-    await sendPhoto(chatId, imageUrl, caption);
+
+  // GPT 텍스트 답장 (구독 여부 관계없이)
+  const caption = await chat(
+    systemPrompt,
+    userText
+      ? `유저가 "${userText}" 라고 했어. 지금 일상 사진을 보내주면서 자연스럽게 답장해줘. 1~2문장으로.`
+      : '지금 일상 사진을 찍어서 보내주는 상황이야. 사진과 함께 보낼 짧은 메시지를 1~2문장으로 써줘.'
+  );
+
+  // 유료 구독자면 사진도 발송
+  if (user.is_subscribed) {
+    await sendMessage(chatId, '📸 사진 생성 중이에요... 🌸');
+    const imageUrl = await generateDailyPhoto(prefs.look || 'cute', user.soul_id);
+    if (imageUrl) {
+      await sendPhoto(chatId, imageUrl, caption);
+    } else {
+      await sendMessage(chatId, caption);
+    }
   } else {
-    await sendMessage(chatId, caption + '\n\n(사진 생성 중 오류가 났어요 ㅠ 잠시 후 다시 시도해주세요)');
+    // 무료 유저는 텍스트만 + 구독 유도
+    await sendMessage(chatId, caption);
+    await sendMessage(chatId, '📸 사진은 베이직 구독자에게 제공돼요!\n월 9,900원으로 사진도 받아보세요 💕\n👉 haru-landing.vercel.app');
   }
 }
 
@@ -294,9 +385,12 @@ export default async function handler(req, res) {
       await sendMessage(chatId, `✨ 거의 다 됐어요!\n\n랜덤 이름: <b>${rn}</b>\n\n이름이 좋으면 "좋아" 입력, 원하는 이름이 있으면 직접 입력해주세요 😊`);
     } else if (!nextStep) {
       await updateUser(chatId, { prefs, step: 'chatting', history: [] });
-      const greeting = await chat(buildSystemPrompt(prefs), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 설레는 느낌으로 2~3문장.');
-      await sendMessage(chatId, `🌸 나만의 친구가 완성됐어요!\n\n<b>7일 무료 체험 시작!</b> 💕\n\n/photo 로 일상 사진을 받아보세요 📸`);
+      const systemPrompt = buildSystemPrompt(prefs);
+      const greeting = await chat(systemPrompt, '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 설레는 느낌으로 2~3문장.');
+      await sendMessage(chatId, `🌸 나만의 친구가 완성됐어요!\n\n<b>7일 무료 체험 시작!</b> 💕`);
       await sendMessage(chatId, greeting);
+      // 백그라운드로 SoulId 초기화 (응답 후 처리)
+      initCharacter(chatId, prefs).catch(console.error);
     } else {
       await updateUser(chatId, { prefs, step: nextStep });
       await sendStepQuestion(chatId, nextStep);
@@ -313,28 +407,21 @@ export default async function handler(req, res) {
   if (text === '/start') {
     let user = await getUser(chatId);
     if (!user) await createUser(chatId, username);
-    else await updateUser(chatId, { step: 'look', prefs: {}, history: [] });
+    else await updateUser(chatId, { step: 'look', prefs: {}, history: [], soul_id: null, base_image_url: null });
     await sendMessage(chatId, `안녕하세요! 👋\n\n<b>하루</b>에 오신 걸 환영해요 🌸\n\n5가지 취향을 선택하면 세상에 하나뿐인 나만의 친구가 생겨요 💕`);
     await sendStepQuestion(chatId, 'look');
     return res.status(200).json({ ok: true });
   }
 
-  if (text === '/photo') {
-    const user = await getUser(chatId);
-    if (!user || user.step !== 'chatting') { await sendMessage(chatId, '먼저 /start 로 친구를 만들어주세요 🌸'); return res.status(200).json({ ok: true }); }
-    await handlePhotoRequest(chatId, user);
-    return res.status(200).json({ ok: true });
-  }
-
   if (text === '/change') {
-    await updateUser(chatId, { step: 'look', prefs: {}, history: [] });
+    await updateUser(chatId, { step: 'look', prefs: {}, history: [], soul_id: null, base_image_url: null });
     await sendMessage(chatId, '새로운 친구를 만들어볼까요? 😊');
     await sendStepQuestion(chatId, 'look');
     return res.status(200).json({ ok: true });
   }
 
   if (text === '/help') {
-    await sendMessage(chatId, `<b>하루 사용법</b> 💕\n\n/start — 처음부터 시작\n/change — 다른 친구로 바꾸기\n/photo — 일상 사진 받기 📸\n/help — 도움말\n\n7일 무료 체험 후 구독으로 계속 이용 가능해요 🌸`);
+    await sendMessage(chatId, `<b>하루 사용법</b> 💕\n\n/start — 처음부터 시작\n/change — 다른 친구로 바꾸기\n/help — 도움말\n\n대화 중에 "사진 보내줘", "셀카 찍어줘", "뭐해?" 라고 하면 사진을 받을 수 있어요 📸\n(베이직 구독자 전용)\n\n7일 무료 체험 후 구독으로 계속 이용 가능해요 🌸`);
     return res.status(200).json({ ok: true });
   }
 
@@ -351,8 +438,9 @@ export default async function handler(req, res) {
     prefs.name = (text === '좋아' || text === '좋아요' || text === 'ㅇㅇ') ? NAMES[Math.floor(Math.random() * NAMES.length)] : text.trim().slice(0, 6);
     await updateUser(chatId, { prefs, step: 'chatting', history: [] });
     const greeting = await chat(buildSystemPrompt(prefs), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 설레는 느낌으로 2~3문장.');
-    await sendMessage(chatId, `🌸 <b>${prefs.name}</b>와 연결됐어요!\n<b>7일 무료 체험 시작!</b> 💕\n/photo 로 일상 사진을 받아보세요 📸`);
+    await sendMessage(chatId, `🌸 <b>${prefs.name}</b>와 연결됐어요!\n<b>7일 무료 체험 시작!</b> 💕`);
     await sendMessage(chatId, greeting);
+    initCharacter(chatId, prefs).catch(console.error);
     return res.status(200).json({ ok: true });
   }
 
@@ -372,9 +460,23 @@ export default async function handler(req, res) {
 
   if (user.step === 'chatting') {
     const history = user.history || [];
-    const reply = await chat(buildSystemPrompt(user.prefs || {}), text, history);
-    await updateUser(chatId, { history: [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20) });
-    await sendMessage(chatId, reply);
+    const prefs = user.prefs || {};
+
+    // 사진 키워드 감지
+    if (wantsPhoto(text)) {
+      await handlePhotoRequest(chatId, user, text);
+      // 히스토리에도 추가
+      const systemPrompt = buildSystemPrompt(prefs);
+      const reply = await chat(systemPrompt, text, history);
+      const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20);
+      await updateUser(chatId, { history: newHistory });
+    } else {
+      // 일반 대화
+      const reply = await chat(buildSystemPrompt(prefs), text, history);
+      const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20);
+      await updateUser(chatId, { history: newHistory });
+      await sendMessage(chatId, reply);
+    }
   }
 
   return res.status(200).json({ ok: true });
