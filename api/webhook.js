@@ -148,9 +148,7 @@ const PHOTO_KEYWORDS = [
   '뭐해', '뭐하고있어', '뭐하고 있어', '뭐하냐',
   '지금 뭐', '오늘 어디', '오늘어디', '보내줘'
 ];
-function wantsPhoto(text) {
-  return PHOTO_KEYWORDS.some(k => text.includes(k));
-}
+
 
 // ===== 영상 요청 키워드 =====
 const VIDEO_KEYWORDS = [
@@ -160,10 +158,22 @@ const VIDEO_KEYWORDS = [
 ];
 
 function wantsVideo(text) {
-  // "그만", "싫어", "됐어" 등 거절 의사가 있으면 영상 트리거 안 함
-  const stopWords = ['그만', '됐어', '싫어', '아니야', '아니', '필요없', '취소'];
+  // 거절/미래표현 있으면 트리거 안 함
+  const stopWords = [
+    '그만', '됐어', '싫어', '아니야', '아니', '필요없', '취소',
+    '내일', '나중에', '이따가', '이따', '다음에', '나중', '언젠가', '보내줄게'
+  ];
   if (stopWords.some(k => text.includes(k))) return false;
   return VIDEO_KEYWORDS.some(k => text.includes(k));
+}
+
+function wantsPhoto(text) {
+  const stopWords = [
+    '그만', '됐어', '싫어', '아니야', '아니', '필요없', '취소',
+    '내일', '나중에', '이따가', '이따', '다음에', '나중', '언젠가', '보내줄게'
+  ];
+  if (stopWords.some(k => text.includes(k))) return false;
+  return PHOTO_KEYWORDS.some(k => text.includes(k));
 }
 
 // ===== 온보딩 옵션 =====
@@ -1442,10 +1452,16 @@ function buildSystemPrompt(prefs, isSubscribed = false) {
     personalInfo.camera ? `${personalInfo.camera} 사용, ${personalInfo.studio}` : '',
   ].filter(Boolean).join(' / ');
 
+  const kstNow = getKSTDate();
+  const dateStr = `${kstNow.getFullYear()}년 ${kstNow.getMonth()+1}월 ${kstNow.getDate()}일`;
+  const timeStr = `${String(kstNow.getHours()).padStart(2,'0')}:${String(kstNow.getMinutes()).padStart(2,'0')}`;
+  const dayNames = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
+  const dayName = dayNames[kstNow.getDay()];
+
   const base = `너는 ${name}이야. ${nat} ${age}살 ${job}. MBTI ${mbti}.
 
 ## 지금 이 순간
-지금 한국 시간으로 ${timeOfDay}. ${timeCtx.time}.
+지금 한국 시간으로 ${dateStr} ${dayName} ${timeStr}. ${timeOfDay}. ${timeCtx.time}.
 오늘 감정 상태: ${emotionDesc}.
 오늘 있었던 일: ${todayActivity}.
 ⚠️ 오늘 감정과 있었던 일은 대화에서 딱 한 번만 자연스럽게 흘려. 이미 말했으면 다시 꺼내지 마.
@@ -1478,7 +1494,8 @@ ${jobPersona}
 사진/영상 요청받으면:
 - 바로 줄 때도 있고 귀찮다며 뜸들일 때도 있어
 - 뜸들일 땐 "나중에 줄게", "내일 찍어서 줄게" 하면서 기대감 남겨
-- 근데 뜸들인다고 선언하고 나서 바로 또 사진 얘기 꺼내지 마. 자연스럽게 다른 대화로 넘어가
+- ⚠️ "내일", "나중에", "이따가" 라고 했으면 절대 그 직후에 사진/영상 보내지 마. 진짜로 다음에 보내는 것처럼 행동해
+- 뜸들인 후엔 자연스럽게 다른 대화로 넘어가
 
 직접 만나자는 말엔:
 - 현실적인 이유로 자연스럽게 넘겨. 직업에 맞는 핑계로
@@ -1704,7 +1721,24 @@ async function sendVideo(chatId, videoUrl, caption = '') {
 
 // ===== 영상 요청 처리 =====
 async function handleVideoRequest(chatId, user, userText) {
-  const prefs = user.prefs || {};
+  // DB에서 최신 유저 정보 다시 가져오기 (중복 방지)
+  const freshUser = await getUser(chatId);
+  const prefs = freshUser?.prefs || {};
+
+  // 이미 영상 생성 중이면 무시
+  if (prefs.video_generating) {
+    return; // 조용히 무시
+  }
+
+  // 생성 중 플래그 설정 (즉시)
+  prefs.video_generating = true;
+  await updateUser(chatId, { prefs });
+
+  // 플래그 확인 (race condition 방지)
+  await new Promise(r => setTimeout(r, 500));
+  const checkUser = await getUser(chatId);
+  if (!checkUser?.prefs?.video_generating) return;
+
   const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
 
   // 영상 생성 전 자연스러운 멘트
@@ -1725,10 +1759,14 @@ async function handleVideoRequest(chatId, user, userText) {
 
   // 사진 → 영상 변환
   const videoUrl = await generateVideo(imageUrl, userText);
+
+  // 플래그 해제
+  prefs.video_generating = false;
+  await updateUser(chatId, { prefs });
+
   if (videoUrl) {
     await sendVideo(chatId, videoUrl, '');
   } else {
-    // 영상 실패 시 사진이라도 발송
     await sendPhoto(chatId, imageUrl, '');
     await sendMessage(chatId, '영상이 좀 이상하게 나왔어 ㅠ 사진으로 대신할게');
   }
@@ -1992,8 +2030,10 @@ export default async function handler(req, res) {
     }
 
     if (wantsVideo(text)) {
-      await handleVideoRequest(chatId, user, text);
+      // 히스토리 먼저 업데이트
       await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
+      // 영상은 백그라운드로 처리 (타임아웃 방지)
+      handleVideoRequest(chatId, user, text).catch(console.error);
     } else if (wantsMeet(text)) {
       // 만남 요청 횟수 체크
       const meetCount = (prefs.meet_request_count || 0) + 1;
