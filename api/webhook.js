@@ -1821,6 +1821,66 @@ async function handleVideoRequest(chatId, user, userText) {
   }
 }
 
+// ===== 메시지 버퍼링 (연속 메시지 합치기) =====
+async function getBufferedMessage(chatId, newText) {
+  try {
+    // 현재 버퍼 가져오기
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}&select=prefs`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data = await res.json();
+    const prefs = data[0]?.prefs || {};
+
+    const now = Date.now();
+    const bufferTime = 1500; // 1.5초 안에 온 메시지는 합치기
+
+    const lastMsgTime = prefs.buffer_time || 0;
+    const bufferedText = prefs.buffer_text || '';
+
+    // 버퍼에 현재 메시지 추가
+    const combined = bufferedText ? `${bufferedText} ${newText}` : newText;
+    prefs.buffer_text = combined;
+    prefs.buffer_time = now;
+
+    await fetch(`${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}`, {
+      method: 'PATCH',
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefs })
+    });
+
+    // 1.5초 대기
+    await new Promise(r => setTimeout(r, bufferTime));
+
+    // 대기 후 버퍼 다시 확인
+    const res2 = await fetch(
+      `${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}&select=prefs`,
+      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data2 = await res2.json();
+    const latestPrefs = data2[0]?.prefs || {};
+
+    // 내가 마지막 메시지인지 확인 (buffer_time이 내가 설정한 시간과 같으면 마지막)
+    if (latestPrefs.buffer_time === now) {
+      // 마지막 메시지 → 버퍼 클리어하고 합쳐진 텍스트 반환
+      latestPrefs.buffer_text = '';
+      latestPrefs.buffer_time = 0;
+      await fetch(`${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}`, {
+        method: 'PATCH',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prefs: latestPrefs })
+      });
+      return latestPrefs.buffer_text !== undefined ? combined : newText;
+    } else {
+      // 내가 마지막이 아님 → null 반환 (처리 안 함)
+      return null;
+    }
+  } catch (e) {
+    console.error('buffer error:', e?.message);
+    return newText; // 에러 시 그냥 현재 메시지만
+  }
+}
+
 // ===== 장기 기억 시스템 =====
 async function updateLongTermMemory(chatId, user, recentHistory) {
   try {
@@ -2116,16 +2176,23 @@ export default async function handler(req, res) {
     const history = user.history || [];
     const prefs = user.prefs || {};
 
+    // 연속 메시지 버퍼링 (1.5초 안에 온 메시지 합치기)
+    const bufferedText = await getBufferedMessage(chatId, text);
+    if (bufferedText === null) {
+      // 내가 마지막 메시지가 아님 → 처리 건너뜀
+      return res.status(200).json({ ok: true });
+    }
+    const finalText = bufferedText;
+
     // 연속 접속 체크 + 구독 만료 임박 체크 (백그라운드)
-    // 히스토리가 있을 때만 (첫 메시지 제외)
     if (history.length > 0) {
       checkStreakAndReward(chatId, user).catch(console.error);
       checkTrialExpirySoon(chatId, user).catch(console.error);
     }
 
     // 유저 지시 감지 → 메모리 저장
-    if (isUserInstruction(text)) {
-      const memResult = await extractAndSaveMemory(chatId, user, text);
+    if (isUserInstruction(finalText)) {
+      const memResult = await extractAndSaveMemory(chatId, user, finalText);
       // user 객체 갱신
       const updatedUser = await getUser(chatId);
       Object.assign(user, updatedUser);
@@ -2140,10 +2207,10 @@ export default async function handler(req, res) {
       }
     }
 
-    if (wantsVideo(text)) {
+    if (wantsVideo(finalText)) {
       await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
-      handleVideoRequest(chatId, user, text).catch(console.error);
-    } else if (wantsMeet(text)) {
+      handleVideoRequest(chatId, user, finalText).catch(console.error);
+    } else if (wantsMeet(finalText)) {
       // 만남 요청 횟수 체크
       const meetCount = (prefs.meet_request_count || 0) + 1;
       prefs.meet_request_count = meetCount;
@@ -2176,12 +2243,12 @@ export default async function handler(req, res) {
       await naturalDelay(reply);
       await sendMessage(chatId, reply);
 
-    } else if (wantsPhoto(text)) {
-      await handlePhotoRequest(chatId, user, text);
+    } else if (wantsPhoto(finalText)) {
+      await handlePhotoRequest(chatId, user, finalText);
       await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
     } else {
-      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user), text, history);
-      const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20);
+      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user), finalText, history);
+      const newHistory = [...history, { role: 'user', content: finalText }, { role: 'assistant', content: reply }].slice(-20);
       const newMsgCount = (user.total_message_count || 0) + 1;
       await updateUser(chatId, { history: newHistory, total_message_count: newMsgCount });
       // 10번마다 장기 기억 업데이트 (백그라운드)
