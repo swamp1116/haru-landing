@@ -174,6 +174,17 @@ function wantsPhoto(text) {
     '내일', '나중에', '이따가', '이따', '다음에', '나중', '언젠가', '보내줄게'
   ];
   if (stopWords.some(k => text.includes(k))) return false;
+
+  // 직업/명사로 쓰인 경우 제외 (사진작가, 사진관, 사진첩 등)
+  const nounPatterns = ['사진작가', '사진관', '사진첩', '사진관련', '사진촬영', '사진전'];
+  if (nounPatterns.some(k => text.includes(k))) return false;
+
+  // "사진" 단독으로 쓰인 경우만 트리거 (질문형 제외 - "사진작가야?" 같은 경우)
+  if (text.includes('사진') && !text.includes('보내') && !text.includes('찍어') && !text.includes('줘') && !text.includes('보여')) {
+    // "사진" + 동사 없으면 트리거 안 함
+    return false;
+  }
+
   return PHOTO_KEYWORDS.some(k => text.includes(k));
 }
 
@@ -1396,36 +1407,30 @@ async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '
 
 // ===== 질문 1개 제한 =====
 function limitToOneQuestion(text) {
-  // ? 개수 확인
   const questionMarks = (text.match(/\?/g) || []).length;
   if (questionMarks <= 1) return text;
 
-  // ? 가 2개 이상이면 첫 번째 ? 이후 두 번째 ? 포함 문장 제거
-  // 줄바꿈이나 공백+대문자/한글로 문장 구분
-  const parts = text.split(/(\s{1,2})/);
-  let questionCount = 0;
-  let result = '';
-  let cutting = false;
+  // 두 번째 ? 위치 찾아서 그 앞 문장까지만 유지
+  let firstQ = text.indexOf('?');
+  let secondQ = text.indexOf('?', firstQ + 1);
 
-  for (let i = 0; i < parts.length; i++) {
-    const part = parts[i];
-    if (!cutting) {
-      if (part.includes('?')) {
-        questionCount++;
-        if (questionCount === 1) {
-          // 첫 번째 질문: 포함
-          result += part;
-        } else {
-          // 두 번째 질문: 이 부분부터 제거
-          cutting = true;
-        }
-      } else {
-        result += part;
-      }
-    }
+  if (secondQ === -1) return text;
+
+  // 두 번째 ? 앞에서 문장 시작점 찾기 (공백 기준)
+  const beforeSecond = text.substring(0, secondQ);
+  // 마지막 문장 구분자(. ! ? 공백) 위치
+  const lastBreak = Math.max(
+    beforeSecond.lastIndexOf('. '),
+    beforeSecond.lastIndexOf('! '),
+    beforeSecond.lastIndexOf('? ')
+  );
+
+  if (lastBreak > firstQ) {
+    return text.substring(0, lastBreak + 1).trim();
   }
 
-  return result.trim();
+  // 구분자 없으면 두 번째 ? 앞까지
+  return text.substring(0, secondQ).trim();
 }
 
 // ===== 자연스러운 딜레이 =====
