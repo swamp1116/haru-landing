@@ -2110,12 +2110,8 @@ export default async function handler(req, res) {
     }
 
     if (wantsVideo(text)) {
-      // 영상 기능 임시 비활성화 (폴링 타임아웃 이슈)
-      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user),
-        '유저가 영상 보내달라고 했어. 지금 바빠서 나중에 보내줄게 하고 자연스럽게 넘겨. 1문장으로.', history);
-      await naturalDelay(reply);
-      await sendMessage(chatId, reply);
-      await updateUser(chatId, { history: [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20) });
+      await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
+      handleVideoRequest(chatId, user, text).catch(console.error);
     } else if (wantsMeet(text)) {
       // 만남 요청 횟수 체크
       const meetCount = (prefs.meet_request_count || 0) + 1;
