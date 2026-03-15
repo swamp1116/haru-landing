@@ -157,13 +157,21 @@ function wantsPhoto(text) {
   ];
   if (stopWords.some(k => text.includes(k))) return false;
 
-  // 직업/명사로 쓰인 경우 제외 (사진작가, 사진관, 사진첩 등)
+  // 직업/명사로 쓰인 경우 제외
   const nounPatterns = ['사진작가', '사진관', '사진첩', '사진관련', '사진촬영', '사진전'];
   if (nounPatterns.some(k => text.includes(k))) return false;
 
-  // "사진" 단독으로 쓰인 경우만 트리거 (질문형 제외 - "사진작가야?" 같은 경우)
+  // 검색/캡처/스크린샷 관련 - 자기 사진 요청 아님
+  const notSelfiePatterns = [
+    '검색해서', '검색하면', '찾아서', '찾아봐', '구글', '네이버',
+    '캡처', '스크린샷', '화면', '캡쳐', '스샷',
+    '사진으로 설명', '사진으로 알려', '사진 검색',
+    '인터넷에서', '온라인에서'
+  ];
+  if (notSelfiePatterns.some(k => text.includes(k))) return false;
+
+  // "사진" 단독으로 쓰인 경우 - 동사 없으면 트리거 안 함
   if (text.includes('사진') && !text.includes('보내') && !text.includes('찍어') && !text.includes('줘') && !text.includes('보여')) {
-    // "사진" + 동사 없으면 트리거 안 함
     return false;
   }
 
@@ -2324,8 +2332,20 @@ export default async function handler(req, res) {
     }
 
     if (wantsVideo(finalText)) {
-      await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
-      handleVideoRequest(chatId, user, finalText).catch(console.error);
+      // 영상 월 5회 제한
+      const now = new Date();
+      const monthKey = `video_${now.getFullYear()}_${now.getMonth() + 1}`;
+      const videoCount = prefs[monthKey] || 0;
+
+      if (videoCount >= 5) {
+        const limitMsg = '이번 달 영상은 다 보내줬어 ㅠ 다음 달에 또 보내줄게!';
+        await naturalDelay(limitMsg);
+        await sendMessage(chatId, limitMsg);
+      } else {
+        prefs[monthKey] = videoCount + 1;
+        await updateUser(chatId, { history: [...history, { role: 'user', content: finalText }].slice(-20), prefs });
+        handleVideoRequest(chatId, user, finalText).catch(console.error);
+      }
     } else if (wantsMeet(finalText)) {
       // 만남 요청 횟수 체크
       const meetCount = (prefs.meet_request_count || 0) + 1;
