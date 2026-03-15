@@ -1801,8 +1801,7 @@ async function updateLongTermMemory(chatId, user, recentHistory) {
 
     const historyText = recentHistory
       .map(h => `${h.role === 'user' ? '유저' : '봇'}: ${h.content}`)
-      .join('
-');
+      .join('\n');
 
     const res = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
