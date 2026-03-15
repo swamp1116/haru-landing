@@ -1361,13 +1361,19 @@ async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '
       ? '' // 승무원은 extractScene에서 도시 자동 설정
       : 'Seoul Korea background, Korean urban environment, Seoul city';
 
+    // _forceType으로 강제 타입 지정 (초반 POV 강제)
+    const forceType = prefs._forceType;
+    const selfieAngle = prefs._selfieAngle || '';
+    const finalType = forceType || type;
+
     let prompt;
-    if (type === 'POV') {
+    if (finalType === 'POV') {
       prompt = `${scene}, ${locationCtx}, first person POV photo, phone camera quality, natural lighting, authentic candid feel, photorealistic, no person visible, UGC style`;
-    } else if (type === 'SCENE') {
+    } else if (finalType === 'SCENE') {
       prompt = `${scene}, ${locationCtx}, scenic photo, phone camera quality, natural lighting, authentic feel, photorealistic, UGC style`;
     } else {
-      prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, ${locationCtx}, casual UGC selfie style, phone camera quality, natural lighting, photorealistic, not studio background`;
+      const angleDesc = selfieAngle ? `, ${selfieAngle}` : '';
+      prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, ${locationCtx}${angleDesc}, casual UGC selfie style, phone camera quality, natural lighting, photorealistic, not studio background`;
     }
 
     const body = { prompt, aspect_ratio: '9:16', resolution: '720p' };
@@ -1717,40 +1723,59 @@ async function handlePhotoRequest(chatId, user, userText) {
     return;
   }
 
+  const msgCount = user.total_message_count || 0;
+  const stage = msgCount <= 15 ? 'early' : msgCount <= 40 ? 'mid' : 'late';
+
   if (user.is_subscribed) {
-    // 25% 확률로 튕기기 (GPT로 자연스럽게 생성)
+
+    // 초반 (0~15): 부끄러워서 셀카 안 보냄 → POV/풍경만
+    if (stage === 'early') {
+      const shyReplies = [
+        '아직 좀 부끄러워서 ㅎㅎ 좀 더 친해지면 보내줄게',
+        '셀카는 아직 좀.. 대신 지금 있는 곳 보여줄게 ㅎ',
+        '얼굴은 아직 부끄럽다 ㅋㅋ 좀 더 친해지자',
+        '사진은 좀 있다가~ 대신 이거 봐 👀',
+        '아직 낯가리는 중이야 ㅎ 나중에!'
+      ];
+      const shy = shyReplies[Math.floor(Math.random() * shyReplies.length)];
+      await naturalDelay(shy);
+      await sendMessage(chatId, shy);
+      const povPrefs = { ...prefs, _forceType: 'POV' };
+      const imageUrl = await generateDailyPhoto(povPrefs, user.soul_id, userText, shy);
+      if (imageUrl) await sendPhoto(chatId, imageUrl, '');
+      return;
+    }
+
+    // 중반/후반: 25% 확률로 튕기기
     if (Math.random() < 0.25) {
       const teasePrompt = await chat(systemPrompt,
-        `사진 보내달라는 말에 귀찮다거나 지금은 좀 별로라며 자연스럽게 튕겨. 
-하지만 나중에 보내줄게 하면서 기대감은 남겨.
-딱 1~2문장. 실제 카톡 문자처럼. 
-절대 "고마워", "기대하고 있을게" 같은 공식적인 말 금지.
-그냥 귀찮은 척 툭 던지는 말투로.`
+        '사진 보내달라는 말에 부끄럽거나 지금은 좀 별로라며 자연스럽게 튕겨. 나중에 보내줄게 하면서 기대감 남겨. 1~2문장. 카톡처럼.'
       );
-      // 2시간 후 자동 사진 발송 예약
       prefs.photo_blocked_until = Date.now() + 2 * 60 * 60 * 1000;
-      prefs.pending_photo = true; // 2시간 후 자동 발송 예약
+      prefs.pending_photo = true;
       prefs.pending_photo_text = userText || '';
       await updateUser(chatId, { prefs });
       await naturalDelay(teasePrompt);
       await sendMessage(chatId, teasePrompt);
       return;
     }
+
     const caption = await chat(systemPrompt,
-      `지금 사진을 보내는 상황이야. 딱 1문장만 출력해.
-절대 금지:
-- "유저가 ~라고 했어" 같은 말
-- "이렇게 답장해볼게", "답장해볼게" 같은 말
-- 내가 뭘 할 거라고 설명하는 말
-- 따옴표로 감싼 예시 형태로 출력하는 것
-그냥 실제 카톡 메시지 자체만 출력해. 예: ㅋㅋ 이거봐 / 헐 이상하게 나왔다 / 오래된 거 찾았어`
+      '지금 사진 보내기 직전. 딱 1문장. 실제 카톡 메시지만 출력해. 예: ㅋㅋ 이거봐 / 이상하게 나왔다 / 오래된 거 찾았어'
     );
     await sendMessage(chatId, caption);
-    const imageUrl = await generateDailyPhoto(prefs, user.soul_id, userText, caption);
+
+    // 중반: 측면/뒷모습, 후반: 정면 셀카
+    let photoPrefs = { ...prefs };
+    if (stage === 'mid') {
+      photoPrefs._selfieAngle = 'side angle or looking away, not full frontal face, shy casual selfie';
+    }
+    const imageUrl = await generateDailyPhoto(photoPrefs, user.soul_id, userText, caption);
     if (imageUrl) await sendPhoto(chatId, imageUrl, '');
+
   } else {
     const caption = await chat(systemPrompt,
-      `유저가 "${userText || '사진 보내줘'}" 라고 했어. 자연스럽게 짧게 답장해. 히스토리 내용 반복 금지.`
+      '유저가 사진 보내달라고 했어. 자연스럽게 짧게 답장해. 히스토리 내용 반복 금지.'
     );
     await sendMessage(chatId, caption);
     await sendMessage(chatId, '📸 사진은 베이직 구독자에게 제공돼요!\n월 9,900원으로 사진도 받아보세요 💕\n👉 haru-landing.vercel.app');
