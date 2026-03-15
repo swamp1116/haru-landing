@@ -1,5 +1,5 @@
 // api/webhook.js - 하루 AI 여친 봇 v2.0
-// TEMP DISABLED
+
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -1882,8 +1882,20 @@ export default async function handler(req, res) {
 
   if (text === '/start') {
     let user = await getUser(chatId);
-    if (!user) await createUser(chatId, username);
-    else await updateUser(chatId, { step: 'nationality', prefs: {}, history: [], soul_id: null, base_image_url: null });
+    if (!user) {
+      await createUser(chatId, username);
+    } else {
+      // 모든 데이터 완전 초기화
+      await updateUser(chatId, {
+        step: 'nationality',
+        prefs: {},
+        history: [],
+        soul_id: null,
+        base_image_url: null,
+        is_subscribed: user.is_subscribed, // 구독 상태는 유지
+        trial_start: user.trial_start // 트라이얼 날짜 유지
+      });
+    }
     await sendMessage(chatId, `안녕하세요! 👋\n\n<b>하루</b>에 오신 걸 환영해요 🌸\n\n9가지 취향을 선택하면 세상에 하나뿐인 나만의 친구가 생겨요 💕\n\n지금 바로 시작할게요!`);
     await sendStepQuestion(chatId, 'nationality');
     return res.status(200).json({ ok: true });
@@ -1956,8 +1968,11 @@ export default async function handler(req, res) {
     const prefs = user.prefs || {};
 
     // 연속 접속 체크 + 구독 만료 임박 체크 (백그라운드)
-    checkStreakAndReward(chatId, user).catch(console.error);
-    checkTrialExpirySoon(chatId, user).catch(console.error);
+    // 히스토리가 있을 때만 (첫 메시지 제외)
+    if (history.length > 0) {
+      checkStreakAndReward(chatId, user).catch(console.error);
+      checkTrialExpirySoon(chatId, user).catch(console.error);
+    }
 
     // 유저 지시 감지 → 메모리 저장
     if (isUserInstruction(text)) {
