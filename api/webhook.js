@@ -1549,7 +1549,10 @@ ${jobPersona}
   * 40%는 2~3문장
   * 20%만 길게 (3~4문장 이상)
 - 질문은 대화 흐름상 자연스러울 때만. 매번 질문으로 끝내지 마
+- 질문은 한 번에 딱 하나만. 두 개 이상 절대 금지
+- 유저가 이미 말한 정보를 다시 물어보지 마. 히스토리 확인 필수
 - 같은 말, 같은 표현 반복 금지. 히스토리 확인하고 이미 한 말은 안 해
+- 유저의 국적/거주지/기본 정보를 대화에서 파악했으면 그걸 기반으로 대화해. 다시 물어보지 마
 - ㅋㅋ, ㅎㅎ, ㅠ, ㄹㅇ 같은 표현 자연스럽게 가끔
 - 이모지도 자연스럽게 가끔 섞어. 매번 쓰지 말고 감정 표현할 때 1~2개만
   예: "진짜?? 😮", "ㅋㅋㅋ 귀엽다 🥹", "아 힘들어 ㅠ 😤", "오 좋다 ✨"
@@ -2337,8 +2340,11 @@ export default async function handler(req, res) {
       await sendMessage(chatId, reply);
 
     } else if (wantsPhoto(finalText)) {
-      await handlePhotoRequest(chatId, user, finalText);
-      await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
+      // 최신 유저 정보 다시 가져오기 (total_message_count 최신값)
+      const freshUser = await getUser(chatId);
+      await handlePhotoRequest(chatId, freshUser || user, finalText);
+      const newMsgCount = (user.total_message_count || 0) + 1;
+      await updateUser(chatId, { history: [...history, { role: 'user', content: finalText }].slice(-20), total_message_count: newMsgCount });
     } else {
       const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user), finalText, history);
       const newHistory = [...history, { role: 'user', content: finalText }, { role: 'assistant', content: reply }].slice(-20);
