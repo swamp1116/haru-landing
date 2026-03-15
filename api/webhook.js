@@ -1287,26 +1287,39 @@ async function extractScene(userText, characterContext = '') {
           content: `캐릭터 상황: ${characterContext}
 유저 메시지: "${userText}"
 
-위 상황을 바탕으로 사진 배경/장면을 영어로 묘사해줘.
-반드시 캐릭터가 있는 장소와 배경이 실제 상황과 일치해야 해.
+이 상황에서 어떤 사진을 보낼지 결정해줘.
 
-예시:
-- "집에서 요리 중" → "indoor kitchen background, cooking at home, kitchen appliances visible"
-- "카페에서" → "cozy cafe interior, coffee shop background, warm lighting"
-- "연습실에서" → "dance practice room, mirrors on wall, wooden floor"
-- "병원에서" → "hospital corridor, clinical environment"
-- "집에서 쉬는 중" → "cozy home interior, living room or bedroom background"
-- "밖에서 산책 중" → "outdoor park, natural background, fresh air"
+사진 타입을 먼저 정해:
+1. SELFIE - 본인 얼굴/몸이 나오는 셀카
+2. POV - 1인칭 시점으로 찍은 사진 (음식, 풍경, 사물 등)
+3. SCENE - 주변 환경/풍경 사진
 
-장면/배경 묘사만 영어로 출력해. 인물 설명은 하지마.`
+결정 기준:
+- "나 어때?", "셀카", "얼굴", "사진 찍어줘" → SELFIE
+- "뭐 먹어?", "요리했어", "음식", "뭐해?" (집/카페/식당에서) → POV (음식/음료)
+- "날씨 좋다", "여기 예쁘다", "밖이야", "경치" → POV or SCENE
+- "연습 중", "일하는 중" → 상황에 따라 SELFIE or POV
+
+출력 형식 (JSON만):
+{"type": "SELFIE", "scene": "mirror selfie at dance practice room, training outfit"}
+{"type": "POV", "scene": "first person view of korean food being cooked in pan, kitchen counter"}
+{"type": "SCENE", "scene": "han river view from bench, sunset sky, city background"}
+
+JSON만 출력해. 다른 말 하지마.`
         }],
-        max_tokens: 80, temperature: 0.2
+        max_tokens: 100, temperature: 0.2
       })
     });
     const data = await res.json();
-    return data.choices[0].message.content.trim();
+    const raw = data.choices[0].message.content.trim();
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed;
+    } catch {
+      return { type: 'SELFIE', scene: DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)] };
+    }
   } catch (e) {
-    return DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
+    return { type: 'SELFIE', scene: DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)] };
   }
 }
 
@@ -1318,14 +1331,29 @@ async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '
 
     // 대화 맥락을 장면 추출에 전달
     const characterContext = botContext || timeCtx.time;
-    const scene = userText
-      ? await extractScene(userText, characterContext)
-      : DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)];
 
+    let sceneResult;
+    if (userText) {
+      sceneResult = await extractScene(userText, characterContext);
+    } else {
+      sceneResult = { type: 'SELFIE', scene: DAILY_SCENES[Math.floor(Math.random() * DAILY_SCENES.length)] };
+    }
+
+    const { type, scene } = sceneResult;
     const base = buildBasePrompt(prefs);
-    // 배우급 미인 고정
     const beautyBoost = 'extremely beautiful face, actress-level beauty, flawless skin, perfect facial features, stunning appearance';
-    const prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, background must match the scene context exactly, casual UGC selfie style, authentic candid feel, phone camera quality, natural lighting, photorealistic, not studio background`;
+
+    let prompt;
+    if (type === 'POV') {
+      // 1인칭 시점 - 인물 없이 사물/음식/풍경
+      prompt = `${scene}, first person POV photo, phone camera quality, natural lighting, authentic candid feel, photorealistic, no person visible, UGC style`;
+    } else if (type === 'SCENE') {
+      // 풍경/환경 사진 - 인물 없거나 멀리
+      prompt = `${scene}, scenic photo, phone camera quality, natural lighting, authentic feel, photorealistic, UGC style`;
+    } else {
+      // SELFIE - 기본 셀카
+      prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, casual UGC selfie style, phone camera quality, natural lighting, photorealistic, not studio background`;
+    }
 
     const body = { prompt, aspect_ratio: '9:16', resolution: '720p' };
     if (soulId) { body.custom_reference_id = soulId; body.custom_reference_strength = 0.9; }
