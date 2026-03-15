@@ -1476,33 +1476,6 @@ async function chat(systemPrompt, userMessage, history = []) {
   return data.choices[0].message.content;
 }
 
-// ===== 질문 하나로 제한 =====
-function limitToOneQuestion(text) {
-  // 물음표 개수 확인
-  const questions = text.split('?');
-  if (questions.length <= 2) return text; // 물음표 1개 이하면 그대로
-
-  // 물음표가 2개 이상이면 첫 번째 질문까지만 남기고 나머지 질문 제거
-  // 마지막 물음표 이후 내용(보통 빈 문자열)을 제외한 첫 번째 질문만 유지
-  const sentences = text.split(/(?<=[.!?])\s+/);
-  const result = [];
-  let questionCount = 0;
-
-  for (const sentence of sentences) {
-    if (sentence.includes('?')) {
-      if (questionCount === 0) {
-        result.push(sentence);
-        questionCount++;
-      }
-      // 두 번째 질문부터는 제거
-    } else {
-      result.push(sentence);
-    }
-  }
-
-  return result.join(' ').trim();
-}
-
 // ===== Supabase =====
 async function getUser(chatId) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}&select=*`, {
