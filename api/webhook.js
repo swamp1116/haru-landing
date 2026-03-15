@@ -236,7 +236,6 @@ const OPTIONS = {
       { text: '🏋️ 퍼스널트레이너', value: 'pt_trainer' },
       { text: '👩‍🍳 요리사/파티시에', value: 'chef' },
       { text: '🎬 배우/연기학과생', value: 'actor' },
-      { text: '📸 사진작가', value: 'photographer' },
       { text: '👩‍🏫 학원 선생님', value: 'teacher' },
     ]
   },
