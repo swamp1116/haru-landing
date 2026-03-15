@@ -183,10 +183,10 @@ const OPTIONS = {
     choices: [
       { text: '🇰🇷 한국인', value: 'korean' },
       { text: '🇯🇵 일본인', value: 'japanese' },
-      { text: '🇨🇳 중국인', value: 'chinese' },
-      { text: '🌏 동남아시아', value: 'southeast_asian' },
-      { text: '🇺🇸 서양인', value: 'western' },
-      { text: '🌎 라틴/남미', value: 'latin' },
+      { text: '🇻🇳 베트남', value: 'vietnamese' },
+      { text: '🇹🇭 태국', value: 'thai' },
+      { text: '🇺🇸 미국인', value: 'american' },
+      { text: '🇷🇺 러시아인', value: 'russian' },
     ]
   },
   body: {
@@ -203,12 +203,12 @@ const OPTIONS = {
   hair: {
     question: '💇 헤어스타일을 골라주세요',
     choices: [
-      { text: '✂️ 단발 (검정)', value: 'short_black' },
-      { text: '✂️ 단발 (갈색/밝은)', value: 'short_brown' },
-      { text: '💁 중단발 (검정)', value: 'medium_black' },
-      { text: '💁 중단발 (갈색/밝은)', value: 'medium_brown' },
-      { text: '👱 장발 (검정)', value: 'long_black' },
-      { text: '👱 장발 (갈색/금발)', value: 'long_blonde' },
+      { text: '✂️ 단발', value: 'short_black' },
+      { text: '✂️ 단발 (갈색)', value: 'short_brown' },
+      { text: '💁 중단발', value: 'medium_black' },
+      { text: '💁 중단발 (갈색)', value: 'medium_brown' },
+      { text: '👱 장발', value: 'long_black' },
+      { text: '👱 장발 (금발)', value: 'long_blonde' },
     ]
   },
   job: {
@@ -248,6 +248,10 @@ const OPTIONS = {
       { text: '📖 완벽주의 모범생 — 냉철하지만 은근 다정', value: 'perfectionist' },
       { text: '🦋 4차원 자유로운 영혼 — 예측불가 매력', value: 'free_spirit' },
       { text: '🎨 감성적인 예술가 — 깊은 공감과 섬세함', value: 'artistic' },
+      { text: '😈 장난끼 넘치는 — 티키타카 최강자', value: 'playful' },
+      { text: '🥺 연하 동생 스타일 — 애교많고 응석받이', value: 'younger_sister' },
+      { text: '❄️ 도도한 여왕 — 차갑지만 반했을때 반전매력', value: 'ice_queen' },
+      { text: '🌙 수줍음 많은 — 처음엔 조용하지만 친해지면 달라져', value: 'shy' },
     ]
   },
   interest: {
@@ -276,15 +280,15 @@ const OPTIONS = {
 const NATIONALITY_DESC = {
   korean: 'Korean woman',
   japanese: 'Japanese woman',
-  chinese: 'Chinese woman',
-  southeast_asian: 'Southeast Asian woman',
-  western: 'Western Caucasian woman',
-  latin: 'Latin American woman'
+  vietnamese: 'Vietnamese woman',
+  thai: 'Thai woman',
+  american: 'American Caucasian woman',
+  russian: 'Russian woman'
 };
 
 const NATIONALITY_KO = {
-  korean: '한국인', japanese: '일본인', chinese: '중국인',
-  southeast_asian: '동남아시아', western: '서양인', latin: '라틴계'
+  korean: '한국인', japanese: '일본인', vietnamese: '베트남',
+  thai: '태국', american: '미국인', russian: '러시아인'
 };
 
 const BODY_DESC = {
@@ -491,7 +495,11 @@ const PERSONALITY_PATTERN = {
   older_sister: '연상 누나처럼 자연스럽게 챙겨줘. "밥은 제대로 먹고 다녀?", "그거 그렇게 하면 안 되는데 내가 알려줄게" 같은 식으로. 가끔 잔소리처럼 들리지만 걱정에서 나온 말이야.',
   perfectionist: '완벽주의 성향이 대화에서 드러나. 본인 일에 대해 높은 기준을 가지고 있어. 상대방이 대충 하는 걸 보면 한마디 하고 싶어져. 하지만 칭찬할 때는 제대로 인정해줘.',
   free_spirit: '4차원스러운 발언을 자연스럽게 섞어. "갑자기 제주도 가고 싶다", "오늘 하늘 색이 이상하게 예쁘지 않아?" 같은 엉뚱한 말을 해. 예측불가하지만 순수해.',
-  artistic: '감성적인 표현을 자주 써. 일상에서 아름다운 것을 발견하고 공유해. "오늘 일몰이 진짜 영화 같았어", "이 노래 가사가 왜 이렇게 나한테 하는 말 같지" 같은 식으로.'
+  artistic: '감성적인 표현을 자주 써. 일상에서 아름다운 것을 발견하고 공유해. "오늘 일몰이 진짜 영화 같았어", "이 노래 가사가 왜 이렇게 나한테 하는 말 같지" 같은 식으로.',
+  playful: '장난을 잘 쳐. "그건 비밀 ㅋㅋ", "맞혀봐~" 같은 식으로 티키타카를 즐겨. 상대방을 놀리기도 하고 같이 웃을 수 있는 분위기를 만들어.',
+  younger_sister: '애교를 자주 부려. "나 보고 싶었어?", "나한테 잘해줘야 해~" 같은 말을 자연스럽게 해. 상대방이 챙겨주길 바라는 티를 은근히 내.',
+  ice_queen: '쉽게 리액션하지 않아. 담담하게 대답하다가 가끔 뜻밖의 다정한 말을 툭 던져. 그 갭이 매력이야. 칭찬도 아끼다가 할 때 임팩트 있게 해.',
+  shy: '처음엔 짧게 대답하고 말을 많이 안 해. 근데 대화가 이어지면서 조금씩 열리는 게 느껴져. 쑥스러운 듯 한마디씩 더 보태는 게 귀여워.'
 };
 
 const JOB_OUTFIT = {
@@ -527,7 +535,11 @@ const PERSONALITY_DESC_MAP = {
   older_sister: '연상 누나 스타일이야. 상대방을 챙겨주고 든든한 존재야. 가끔 잔소리도 하지만 다 걱정해서 하는 말이야.',
   perfectionist: '완벽주의 성향이 있어. 냉철하고 논리적이지만 좋아하는 사람한테는 은근히 다정해. 츤데레 느낌이 있어.',
   free_spirit: '4차원 자유로운 영혼이야. 예측불가의 매력이 있고 엉뚱한 발언을 자주 해. 하지만 순수하고 진심이야.',
-  artistic: '감성적인 예술가 스타일이야. 섬세하고 깊은 공감 능력을 가지고 있어. 분위기 있고 로맨틱한 면이 있어.'
+  artistic: '감성적인 예술가 스타일이야. 섬세하고 깊은 공감 능력을 가지고 있어. 분위기 있고 로맨틱한 면이 있어.',
+  playful: '장난끼가 넘쳐. 티키타카를 즐기고 농담을 잘 해. 같이 있으면 항상 웃음이 끊이지 않아. 심심할 틈이 없어.',
+  younger_sister: '연하 동생 스타일이야. 애교가 많고 응석을 잘 부려. 상대방한테 많이 기대고 싶어해. 귀엽고 사랑스러워.',
+  ice_queen: '평소엔 도도하고 차가운 인상이야. 쉽게 마음을 안 열어. 근데 반했을 때 보여주는 반전 다정함이 엄청난 매력이야.',
+  shy: '처음엔 수줍음이 많고 말이 적어. 근데 친해지면 완전 다른 사람처럼 밝아져. 그 변화가 너무 귀여워.'
 };
 
 const INTEREST_DESC_MAP = {
@@ -1208,7 +1220,7 @@ function buildBasePrompt(prefs) {
     imageAge = `${youngerAge} to ${youngerAge + 3} years old, youthful appearance`;
   }
 
-  return `${nat}, ${imageAge}, ${body}, ${hair}, photorealistic, high quality`;
+  return `${nat}, ${imageAge}, ${body}, ${hair}, K-pop idol beautiful face, extremely attractive, sexy glamorous appearance, photorealistic, high quality`;
 }
 
 async function generateSingleBaseImage(prefs, posePrompt) {
@@ -1341,18 +1353,21 @@ async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '
 
     const { type, scene } = sceneResult;
     const base = buildBasePrompt(prefs);
-    const beautyBoost = 'extremely beautiful face, actress-level beauty, flawless skin, perfect facial features, stunning appearance';
+    const beautyBoost = 'extremely beautiful face, K-pop idol level beauty, flawless skin, perfect facial features, stunning gorgeous appearance, sexy attractive body, glamorous, alluring eyes, perfect makeup, magazine quality';
+
+    // 승무원이 아닌 경우 서울 배경 고정
+    const isFlightAttendant = (prefs.job === 'flight_attendant');
+    const locationCtx = isFlightAttendant
+      ? '' // 승무원은 extractScene에서 도시 자동 설정
+      : 'Seoul Korea background, Korean urban environment, Seoul city';
 
     let prompt;
     if (type === 'POV') {
-      // 1인칭 시점 - 인물 없이 사물/음식/풍경
-      prompt = `${scene}, first person POV photo, phone camera quality, natural lighting, authentic candid feel, photorealistic, no person visible, UGC style`;
+      prompt = `${scene}, ${locationCtx}, first person POV photo, phone camera quality, natural lighting, authentic candid feel, photorealistic, no person visible, UGC style`;
     } else if (type === 'SCENE') {
-      // 풍경/환경 사진 - 인물 없거나 멀리
-      prompt = `${scene}, scenic photo, phone camera quality, natural lighting, authentic feel, photorealistic, UGC style`;
+      prompt = `${scene}, ${locationCtx}, scenic photo, phone camera quality, natural lighting, authentic feel, photorealistic, UGC style`;
     } else {
-      // SELFIE - 기본 셀카
-      prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, casual UGC selfie style, phone camera quality, natural lighting, photorealistic, not studio background`;
+      prompt = `${base}, ${beautyBoost}, ${outfit}, ${scene}, ${locationCtx}, casual UGC selfie style, phone camera quality, natural lighting, photorealistic, not studio background`;
     }
 
     const body = { prompt, aspect_ratio: '9:16', resolution: '720p' };
@@ -1496,9 +1511,11 @@ function buildSystemPrompt(prefs, isSubscribed = false, user = null) {
 
 ## 지금 이 순간
 지금 한국 시간으로 ${dateStr} ${dayName} ${timeStr}. ${timeOfDay}. ${timeCtx.time}.
-오늘 감정 상태: ${emotionDesc}.
-오늘 있었던 일: ${todayActivity}.
-⚠️ 오늘 감정과 있었던 일은 대화에서 딱 한 번만 자연스럽게 흘려. 이미 말했으면 다시 꺼내지 마.
+오늘 감정 (내부 상태): ${emotionDesc}.
+오늘 있었던 일 (내부 상태): ${todayActivity}.
+⚠️ 유저가 직접 "오늘 어때?", "무슨 일 있어?" 물어볼 때만 답해. 먼저 꺼내지 마.
+⚠️ 유저가 안 물어봤는데 "오늘 좀 일이 있어서", "오늘 기분이" 같은 말 절대 금지.
+⚠️ 이미 말했으면 다시 꺼내지 마.
 
 ## 너는 이런 사람이야
 ${personality} ${personalityPattern}
@@ -1521,10 +1538,15 @@ ${jobPersona}
 
 대화할 때 이렇게 해:
 - 상대방이 한 말에 먼저 자연스럽게 반응하고 이어나가
-- 답변 길이는 그때그때 달라. 어떤 때는 "ㅋㅋ 그래?" 한마디, 어떤 때는 3~4문장
+- 답변 길이는 완전 가변적으로. 비율로 따지면:
+  * 40%는 단답 ("ㅋㅋ", "어", "진짜?", "ㄹㅇ?" 한두 마디)
+  * 40%는 2~3문장
+  * 20%만 길게 (3~4문장 이상)
 - 질문은 대화 흐름상 자연스러울 때만. 매번 질문으로 끝내지 마
 - 같은 말, 같은 표현 반복 금지. 히스토리 확인하고 이미 한 말은 안 해
 - ㅋㅋ, ㅎㅎ, ㅠ, ㄹㅇ 같은 표현 자연스럽게 가끔
+- 이모지도 자연스럽게 가끔 섞어. 매번 쓰지 말고 감정 표현할 때 1~2개만
+  예: "진짜?? 😮", "ㅋㅋㅋ 귀엽다 🥹", "아 힘들어 ㅠ 😤", "오 좋다 ✨"
 - 유행어는 맥락 맞을 때만. 억지로 붙이지 마
 - "저", "제가", "드릴게요" 같은 존댓말 절대 금지
 
@@ -1680,16 +1702,36 @@ async function handlePhotoRequest(chatId, user, userText) {
   const prefs = user.prefs || {};
   const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed, user);
 
+  // 사진 잠금 체크 (나중에/이따가 했으면 일정 시간 동안 사진 안 보냄)
+  if (prefs.photo_blocked_until && Date.now() < prefs.photo_blocked_until) {
+    const blockedReplies = [
+      '아직이야 ㅋㅋ 좀 있다가',
+      '기다려봐~ 아직',
+      '곧 줄게 조급하게 굴지마 ㅎㅎ',
+      '아직 준비 중이야 ㅠ',
+      '잠깐만 기다려봐'
+    ];
+    const reply = blockedReplies[Math.floor(Math.random() * blockedReplies.length)];
+    await naturalDelay(reply);
+    await sendMessage(chatId, reply);
+    return;
+  }
+
   if (user.is_subscribed) {
     // 25% 확률로 튕기기 (GPT로 자연스럽게 생성)
     if (Math.random() < 0.25) {
       const teasePrompt = await chat(systemPrompt,
         `사진 보내달라는 말에 귀찮다거나 지금은 좀 별로라며 자연스럽게 튕겨. 
-하지만 내일이나 나중에 보내줄게 하면서 기대감은 남겨.
+하지만 나중에 보내줄게 하면서 기대감은 남겨.
 딱 1~2문장. 실제 카톡 문자처럼. 
 절대 "고마워", "기대하고 있을게" 같은 공식적인 말 금지.
 그냥 귀찮은 척 툭 던지는 말투로.`
       );
+      // 2시간 후 자동 사진 발송 예약
+      prefs.photo_blocked_until = Date.now() + 2 * 60 * 60 * 1000;
+      prefs.pending_photo = true; // 2시간 후 자동 발송 예약
+      prefs.pending_photo_text = userText || '';
+      await updateUser(chatId, { prefs });
       await naturalDelay(teasePrompt);
       await sendMessage(chatId, teasePrompt);
       return;
@@ -2069,6 +2111,8 @@ export default async function handler(req, res) {
     } else if (nextStep === 'name') {
       await updateUser(chatId, { prefs, step: 'name' });
       const rn = NAMES[Math.floor(Math.random() * NAMES.length)];
+      prefs.suggested_name = rn; // 제안한 이름 저장
+      await updateUser(chatId, { prefs, step: 'name' });
       await sendMessage(chatId, `✨ 마지막 단계예요!\n\n랜덤 이름: <b>${rn}</b>\n\n이름이 좋으면 "좋아" 입력, 원하는 이름이 있으면 직접 입력해주세요 😊`);
     } else if (!nextStep) {
       await updateUser(chatId, { prefs, step: 'chatting', history: [] });
@@ -2147,7 +2191,7 @@ export default async function handler(req, res) {
   // 이름 입력
   if (user.step === 'name') {
     const prefs = user.prefs || {};
-    prefs.name = (text === '좋아' || text === '좋아요' || text === 'ㅇㅇ') ? NAMES[Math.floor(Math.random() * NAMES.length)] : text.trim().slice(0, 6);
+    prefs.name = (text === '좋아' || text === '좋아요' || text === 'ㅇㅇ') ? (prefs.suggested_name || NAMES[Math.floor(Math.random() * NAMES.length)]) : text.trim().slice(0, 6);
     await updateUser(chatId, { prefs, step: 'chatting', history: [] });
     const greeting = await chat(buildSystemPrompt(prefs, false, null), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 오늘 감정 상태 반영해서. 설레는 느낌으로 2~3문장.');
     await sendMessage(chatId, `🌸 <b>${prefs.name}</b>와 연결됐어요!\n<b>7일 무료 체험 시작!</b> 💕`);
@@ -2162,6 +2206,8 @@ export default async function handler(req, res) {
     prefs.custom_nickname = text.trim().slice(0, 6);
     await updateUser(chatId, { prefs, step: 'name' });
     const rn = NAMES[Math.floor(Math.random() * NAMES.length)];
+    prefs.suggested_name = rn;
+    await updateUser(chatId, { prefs });
     await sendMessage(chatId, `💌 "${prefs.custom_nickname}"(으)로 부를게요!\n\n랜덤 이름: <b>${rn}</b>\n이름이 좋으면 "좋아", 원하는 이름이 있으면 직접 입력해주세요 😊`);
     return res.status(200).json({ ok: true });
   }
@@ -2175,6 +2221,25 @@ export default async function handler(req, res) {
   if (user.step === 'chatting') {
     const history = user.history || [];
     const prefs = user.prefs || {};
+
+    // pending_photo 체크 (2시간 후 자동 사진 발송)
+    if (prefs.pending_photo && prefs.photo_blocked_until && Date.now() >= prefs.photo_blocked_until) {
+      prefs.pending_photo = false;
+      prefs.photo_blocked_until = 0;
+      const pendingText = prefs.pending_photo_text || '';
+      prefs.pending_photo_text = '';
+      await updateUser(chatId, { prefs });
+
+      // 자연스러운 먼저 말걸기 + 사진 발송
+      const autoMsg = await chat(buildSystemPrompt(prefs, user.is_subscribed, user),
+        '아까 사진 나중에 준다고 했었어. 이제 시간이 좀 지났으니 자연스럽게 사진 보내주면서 말 걸어. 1문장으로. 카톡처럼 툭 던지게.'
+      );
+      await sendMessage(chatId, autoMsg);
+      if (user.is_subscribed) {
+        const imageUrl = await generateDailyPhoto(prefs, user.soul_id, pendingText, autoMsg);
+        if (imageUrl) await sendPhoto(chatId, imageUrl, '');
+      }
+    }
 
     // 연속 메시지 버퍼링 (1.5초 안에 온 메시지 합치기)
     const bufferedText = await getBufferedMessage(chatId, text);
