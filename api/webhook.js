@@ -1374,11 +1374,15 @@ async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '
 
 // ===== 자연스러운 딜레이 =====
 async function naturalDelay(text) {
-  // 글자 수에 따라 1.5초~4초 딜레이
-  const base = 1500;
-  const perChar = 40;
-  const delay = Math.min(base + text.length * perChar, 4000);
-  await new Promise(r => setTimeout(r, delay));
+  // 실제 타이핑 속도 기반 딜레이
+  // 한국어 평균 타이핑: 글자당 약 120ms
+  // 최소 2초, 최대 6초 + 랜덤 ±500ms
+  const chars = text.length;
+  const typingTime = chars * 120;
+  const readingTime = 800;
+  const delay = Math.min(Math.max(readingTime + typingTime, 2000), 6000);
+  const jitter = Math.floor(Math.random() * 1000) - 500;
+  await new Promise(r => setTimeout(r, delay + jitter));
 }
 
 // ===== Telegram =====
