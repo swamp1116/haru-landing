@@ -154,11 +154,15 @@ function wantsPhoto(text) {
 
 // ===== 영상 요청 키워드 =====
 const VIDEO_KEYWORDS = [
-  '영상', '동영상', '비디오', '움직이는', '영상 보내', '영상보내',
-  '동영상 보내', '움짤', '영상 찍어', '영상으로'
+  '영상 보내', '영상보내', '영상 찍어', '영상 줘', '영상줘',
+  '동영상 보내', '동영상줘', '움짤 보내', '비디오 보내',
+  '영상으로 보내', '동영상으로'
 ];
 
 function wantsVideo(text) {
+  // "그만", "싫어", "됐어" 등 거절 의사가 있으면 영상 트리거 안 함
+  const stopWords = ['그만', '됐어', '싫어', '아니야', '아니', '필요없', '취소'];
+  if (stopWords.some(k => text.includes(k))) return false;
   return VIDEO_KEYWORDS.some(k => text.includes(k));
 }
 
