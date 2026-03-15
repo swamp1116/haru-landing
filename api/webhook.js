@@ -1,5 +1,5 @@
 // api/webhook.js - 하루 AI 여친 봇 v2.0
-
+// TEMP DISABLED
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 const SUPABASE_URL = process.env.SUPABASE_URL;
