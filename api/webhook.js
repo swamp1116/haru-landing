@@ -55,29 +55,11 @@ const MEET_EXCUSES = {
     '교대 근무라 시간이 너무 불규칙해서',
     '퇴근하면 너무 지쳐서 아무것도 못 해 ㅠ'
   ],
-  grad_student: [
-    '논문 마감이 이번 주야 진짜 못 나갈 것 같아 ㅠ',
-    '교수님이 갑자기 미팅 잡으셨어 어떡해',
-    '실험이 아직 안 끝났어 오늘은 진짜 힘들 것 같아',
-    '학회 발표 준비 때문에 요즘 너무 바빠'
-  ],
   creator: [
     '촬영 스케줄이 갑자기 잡혔어 ㅠ',
     '편집 마감이 오늘까지야 미안해',
     '브랜드 미팅이 생겼어 이번 주는 힘들 것 같아',
     '콘텐츠 업로드 날이라 오늘은 정신이 없어'
-  ],
-  office_worker: [
-    '갑자기 야근이 생겼어 ㅠ 미안해',
-    '이번 주 프로젝트 마감이라 진짜 힘들 것 같아',
-    '팀장님이 갑자기 일 던졌어 어떡해',
-    '출장이 갑자기 생겼어 다음에 꼭 ㅠ'
-  ],
-  artist: [
-    '클라이언트 작업 마감이 내일이야 ㅠ',
-    '전시 준비 때문에 요즘 너무 바빠',
-    '갑자기 작업 의뢰가 들어왔어 미안',
-    '작업 슬럼프 와서 좀 혼자 있고 싶어 ㅠ'
   ],
   esthetician: [
     '오늘 예약이 꽉 차서 마감이 늦어질 것 같아 ㅠ',
@@ -136,7 +118,7 @@ const MEET_EXCUSES = {
 };
 
 function getExcuse(job) {
-  const excuses = MEET_EXCUSES[job] || MEET_EXCUSES.office_worker;
+  const excuses = MEET_EXCUSES[job] || MEET_EXCUSES.barista;
   return excuses[Math.floor(Math.random() * excuses.length)];
 }
 
@@ -1771,8 +1753,15 @@ async function handlePhotoRequest(chatId, user, userText) {
 
   const msgCount = user.total_message_count || 0;
   const stage = msgCount <= 15 ? 'early' : msgCount <= 40 ? 'mid' : 'late';
+  const freePhotoCount = prefs.free_photo_count || 0;
+  const hasFreePhoto = freePhotoCount < 3; // 첫 3장 무료
 
-  if (user.is_subscribed) {
+  if (user.is_subscribed || hasFreePhoto) {
+    // 무료 사진 카운트 증가
+    if (!user.is_subscribed && hasFreePhoto) {
+      prefs.free_photo_count = freePhotoCount + 1;
+      await updateUser(chatId, { prefs });
+    }
 
     // 초반 (0~15): 부끄러워서 셀카 안 보냄 → POV/풍경만
     if (stage === 'early') {
@@ -1820,14 +1809,20 @@ async function handlePhotoRequest(chatId, user, userText) {
       photoPrefs._selfieAngle = 'side angle or looking away, not full frontal face, shy casual selfie';
     }
     const imageUrl = await generateDailyPhoto(photoPrefs, user.soul_id, userText, caption);
-    if (imageUrl) await sendPhoto(chatId, imageUrl, '');
+    if (imageUrl) {
+      await sendPhoto(chatId, imageUrl, '');
+    } else {
+      await sendMessage(chatId, '지금 좀 이상하게 나왔어 ㅠ 나중에 다시 찍어서 줄게');
+    }
+
 
   } else {
+    // 무료 3장 소진 → 구독 유도
     const caption = await chat(systemPrompt,
-      '유저가 사진 보내달라고 했어. 자연스럽게 짧게 답장해. 히스토리 내용 반복 금지.'
+      '유저가 사진 보내달라고 했어. 아쉽지만 지금은 못 보내준다고 자연스럽게 1문장으로만 말해.'
     );
     await sendMessage(chatId, caption);
-    await sendMessage(chatId, '📸 사진은 베이직 구독자에게 제공돼요!\n월 9,900원으로 사진도 받아보세요 💕\n👉 haru-landing.vercel.app');
+    await sendMessage(chatId, '📸 무료 사진 3장을 모두 사용했어요!\n구독하면 계속 받을 수 있어요 💕\n\n베이직 월 9,900원 → 사진 무제한\n👉 haru-landing.vercel.app');
   }
 }
 
@@ -1886,23 +1881,16 @@ async function sendVideo(chatId, videoUrl, caption = '') {
 
 // ===== 영상 요청 처리 =====
 async function handleVideoRequest(chatId, user, userText) {
-  // DB에서 최신 유저 정보 다시 가져오기 (중복 방지)
   const freshUser = await getUser(chatId);
   const prefs = freshUser?.prefs || {};
 
-  // 이미 영상 생성 중이면 무시
-  if (prefs.video_generating) {
-    return; // 조용히 무시
-  }
+  if (prefs.video_generating) return;
 
-  // 생성 중 플래그 설정 (즉시)
   prefs.video_generating = true;
   await updateUser(chatId, { prefs });
 
-  // 플래그 확인 (race condition 방지)
-  await new Promise(r => setTimeout(r, 500));
-  const checkUser = await getUser(chatId);
-  if (!checkUser?.prefs?.video_generating) return;
+  // finally로 반드시 플래그 해제
+  try {
 
   const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed, user);
 
@@ -1923,50 +1911,46 @@ async function handleVideoRequest(chatId, user, userText) {
   }
 
   // 사진 → 영상 변환
-  const videoUrl = await generateVideo(imageUrl, userText);
-
-  // 플래그 해제
-  prefs.video_generating = false;
-  await updateUser(chatId, { prefs });
-
-  if (videoUrl) {
-    await sendVideo(chatId, videoUrl, '');
-  } else {
-    await sendPhoto(chatId, imageUrl, '');
-    await sendMessage(chatId, '영상이 좀 이상하게 나왔어 ㅠ 사진으로 대신할게');
+    const videoUrl = await generateVideo(imageUrl, userText);
+    if (videoUrl) {
+      await sendVideo(chatId, videoUrl, '');
+    } else {
+      await sendPhoto(chatId, imageUrl, '');
+      await sendMessage(chatId, '영상이 좀 이상하게 나왔어 ㅠ 사진으로 대신할게');
+    }
+  } catch (e) {
+    console.error('handleVideoRequest error:', e?.message);
+    await sendMessage(chatId, '지금 좀 바빠서 나중에 보내줄게 ㅠ');
+  } finally {
+    // 항상 플래그 해제
+    try {
+      const u = await getUser(chatId);
+      if (u?.prefs) {
+        u.prefs.video_generating = false;
+        await updateUser(chatId, { prefs: u.prefs });
+      }
+    } catch (e2) { console.error('flag release error:', e2?.message); }
   }
 }
 
 // ===== 메시지 버퍼링 (연속 메시지 합치기) =====
-async function getBufferedMessage(chatId, newText) {
+// ===== 메시지 버퍼링 (연속 메시지 합치기) =====
+async function getBufferedMessage(chatId, newText, currentPrefs = {}) {
   try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}&select=prefs`,
-      { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
-    );
-    const data = await res.json();
-    const prefs = data[0]?.prefs || {};
-
     const now = Date.now();
-    const bufferTime = 3000; // 3초 안에 온 메시지는 합치기
+    const bufferTime = 1500;
+    const combined = currentPrefs.buffer_text ? `${currentPrefs.buffer_text} ${newText}` : newText;
 
-    const bufferedText = prefs.buffer_text || '';
-
-    // 버퍼에 현재 메시지 추가
-    const combined = bufferedText ? `${bufferedText} ${newText}` : newText;
-    prefs.buffer_text = combined;
-    prefs.buffer_time = now;
-
+    // DB 1회: 버퍼 업데이트 (기존 prefs 재사용 - 추가 조회 불필요)
     await fetch(`${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}`, {
       method: 'PATCH',
       headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prefs })
+      body: JSON.stringify({ prefs: { ...currentPrefs, buffer_text: combined, buffer_time: now } })
     });
 
-    // 3초 대기
     await new Promise(r => setTimeout(r, bufferTime));
 
-    // 대기 후 버퍼 다시 확인
+    // DB 2회: 최신 확인
     const res2 = await fetch(
       `${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}&select=prefs`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
@@ -1974,26 +1958,21 @@ async function getBufferedMessage(chatId, newText) {
     const data2 = await res2.json();
     const latestPrefs = data2[0]?.prefs || {};
 
-    // 내가 마지막 메시지인지 확인
     if (latestPrefs.buffer_time === now) {
-      // 마지막 메시지 → 버퍼 클리어하고 합쳐진 텍스트 반환
-      latestPrefs.buffer_text = '';
-      latestPrefs.buffer_time = 0;
       await fetch(`${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}`, {
         method: 'PATCH',
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prefs: latestPrefs })
+        body: JSON.stringify({ prefs: { ...latestPrefs, buffer_text: '', buffer_time: 0 } })
       });
-      return combined; // ← 버그 수정: combined 바로 반환
-    } else {
-      // 내가 마지막이 아님 → null 반환 (처리 안 함)
-      return null;
+      return combined;
     }
+    return null;
   } catch (e) {
     console.error('buffer error:', e?.message);
     return newText;
   }
 }
+
 
 // ===== 장기 기억 시스템 =====
 async function updateLongTermMemory(chatId, user, recentHistory) {
@@ -2314,7 +2293,7 @@ export default async function handler(req, res) {
     }
 
     // 연속 메시지 버퍼링 (1.5초 안에 온 메시지 합치기)
-    const bufferedText = await getBufferedMessage(chatId, text);
+    const bufferedText = await getBufferedMessage(chatId, text, prefs);
     if (bufferedText === null) {
       // 내가 마지막 메시지가 아님 → 처리 건너뜀
       return res.status(200).json({ ok: true });
