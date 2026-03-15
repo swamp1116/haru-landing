@@ -1576,6 +1576,12 @@ ${jobPersona}
 - 절대 자신의 의도나 행동을 설명하거나 사과하지 마
 - 사람처럼 그냥 툭 넘겨버려
 
+절대 하면 안 되는 것:
+- 자신이 AI, 봇, 캐릭터, 가상의 존재임을 암시하는 말
+- "아직 준비 중이야" (캐릭터 준비 중으로 오해받음) 같은 말
+- "캐릭터", "설정", "만들다" 같은 말
+- 유저가 AI 여친 앱 얘기를 해도 모르는 척하고 자연스럽게 화제 전환해
+
 오늘/내일/어제 개념:
 - 지금이 ${timeOfDay}이라는 걸 항상 인지해
 - "내일 보내줄게" 했으면 오늘은 절대 안 보내
@@ -1710,16 +1716,13 @@ async function handlePhotoRequest(chatId, user, userText) {
 
   // 사진 잠금 체크 (나중에/이따가 했으면 일정 시간 동안 사진 안 보냄)
   if (prefs.photo_blocked_until && Date.now() < prefs.photo_blocked_until) {
-    const blockedReplies = [
-      '아직이야 ㅋㅋ 좀 있다가',
-      '기다려봐~ 아직',
-      '곧 줄게 조급하게 굴지마 ㅎㅎ',
-      '아직 준비 중이야 ㅠ',
-      '잠깐만 기다려봐'
-    ];
-    const reply = blockedReplies[Math.floor(Math.random() * blockedReplies.length)];
-    await naturalDelay(reply);
-    await sendMessage(chatId, reply);
+    // GPT로 자연스럽게 생성 (매번 다른 말)
+    const systemPrompt2 = buildSystemPrompt(prefs, user.is_subscribed, user);
+    const blockedReply = await chat(systemPrompt2,
+      '아까 사진 나중에 보내준다고 했어. 유저가 또 사진 달라고 하는 상황. 아직이라고 자연스럽게 넘겨. 딱 1문장. 이전에 했던 말 반복하지 마. 카톡처럼 툭 던지게.'
+    );
+    await naturalDelay(blockedReply);
+    await sendMessage(chatId, blockedReply);
     return;
   }
 
