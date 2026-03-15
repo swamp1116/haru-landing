@@ -152,6 +152,16 @@ function wantsPhoto(text) {
   return PHOTO_KEYWORDS.some(k => text.includes(k));
 }
 
+// ===== 영상 요청 키워드 =====
+const VIDEO_KEYWORDS = [
+  '영상', '동영상', '비디오', '움직이는', '영상 보내', '영상보내',
+  '동영상 보내', '움짤', '영상 찍어', '영상으로'
+];
+
+function wantsVideo(text) {
+  return VIDEO_KEYWORDS.some(k => text.includes(k));
+}
+
 // ===== 온보딩 옵션 =====
 const OPTIONS = {
   nationality: {
@@ -1677,6 +1687,91 @@ async function handlePhotoRequest(chatId, user, userText) {
   }
 }
 
+// ===== 영상 생성 (이미지 → 영상) =====
+async function generateVideo(imageUrl, scene = '') {
+  try {
+    const motionPrompts = [
+      'gentle head turn, soft smile, natural hair movement, cinematic',
+      'slight body sway, looking at camera, natural breathing movement',
+      'camera slowly zooms in, subject looks up naturally',
+      'smooth pan, subject turns slightly, warm lighting',
+      'natural blink and smile, slight head tilt, realistic motion'
+    ];
+    const seed = Math.floor(Math.random() * motionPrompts.length);
+    const prompt = motionPrompts[seed];
+
+    const res = await fetch('https://platform.higgsfield.ai/higgsfield-ai/dop/standard', {
+      method: 'POST',
+      headers: { 'Authorization': HF_AUTH(), 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({
+        image_url: imageUrl,
+        prompt,
+        duration: 5
+      })
+    });
+    const data = await res.json();
+    if (!data.request_id) return null;
+
+    // 영상 폴링 (최대 3분)
+    for (let i = 0; i < 36; i++) {
+      await new Promise(r => setTimeout(r, 5000));
+      const statusRes = await fetch(`https://platform.higgsfield.ai/requests/${data.request_id}/status`, {
+        headers: { 'Authorization': HF_AUTH(), 'Accept': 'application/json' }
+      });
+      const statusData = await statusRes.json();
+      if (statusData.status === 'completed') {
+        return statusData.video?.url || statusData.videos?.[0]?.url || null;
+      }
+      if (['failed', 'nsfw', 'cancelled'].includes(statusData.status)) return null;
+    }
+    return null;
+  } catch (e) {
+    console.error('generateVideo error:', e?.message);
+    return null;
+  }
+}
+
+// ===== 텔레그램 영상 발송 =====
+async function sendVideo(chatId, videoUrl, caption = '') {
+  await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendVideo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: chatId, video: videoUrl, caption, parse_mode: 'HTML' })
+  });
+}
+
+// ===== 영상 요청 처리 =====
+async function handleVideoRequest(chatId, user, userText) {
+  const prefs = user.prefs || {};
+  const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
+
+  // 영상 생성 전 자연스러운 멘트
+  const beforeMsg = await chat(systemPrompt,
+    `영상을 보내주는 상황이야. 딱 1문장만 출력해. 실제 카톡 문자처럼. 
+절대 금지: AI처럼 들리는 말, 예고 멘트, 설명하는 말.
+그냥 자연스럽게 툭 던지는 말 한마디.`
+  );
+  await naturalDelay(beforeMsg);
+  await sendMessage(chatId, beforeMsg);
+
+  // 사진 먼저 생성
+  const imageUrl = await generateDailyPhoto(prefs, user.soul_id, userText, beforeMsg);
+  if (!imageUrl) {
+    await sendMessage(chatId, '잠깐만 ㅠ 좀 있다가 다시 해봐');
+    return;
+  }
+
+  // 사진 → 영상 변환
+  const videoUrl = await generateVideo(imageUrl, userText);
+  if (videoUrl) {
+    await sendVideo(chatId, videoUrl, '');
+  } else {
+    // 영상 실패 시 사진이라도 발송
+    await sendPhoto(chatId, imageUrl, '');
+    await sendMessage(chatId, '영상이 좀 이상하게 나왔어 ㅠ 사진으로 대신할게');
+  }
+}
+
 // ===== 연속 접속 체크 =====
 async function checkStreakAndReward(chatId, user) {
   try {
@@ -1919,7 +2014,10 @@ export default async function handler(req, res) {
       }
     }
 
-    if (wantsMeet(text)) {
+    if (wantsVideo(text)) {
+      await handleVideoRequest(chatId, user, text);
+      await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
+    } else if (wantsMeet(text)) {
       // 만남 요청 횟수 체크
       const meetCount = (prefs.meet_request_count || 0) + 1;
       prefs.meet_request_count = meetCount;
