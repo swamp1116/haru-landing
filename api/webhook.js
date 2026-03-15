@@ -1394,6 +1394,40 @@ async function generateDailyPhoto(prefs, soulId, userText = null, botContext = '
   }
 }
 
+// ===== 질문 1개 제한 =====
+function limitToOneQuestion(text) {
+  // ? 개수 확인
+  const questionMarks = (text.match(/\?/g) || []).length;
+  if (questionMarks <= 1) return text;
+
+  // ? 가 2개 이상이면 첫 번째 ? 이후 두 번째 ? 포함 문장 제거
+  // 줄바꿈이나 공백+대문자/한글로 문장 구분
+  const parts = text.split(/(\s{1,2})/);
+  let questionCount = 0;
+  let result = '';
+  let cutting = false;
+
+  for (let i = 0; i < parts.length; i++) {
+    const part = parts[i];
+    if (!cutting) {
+      if (part.includes('?')) {
+        questionCount++;
+        if (questionCount === 1) {
+          // 첫 번째 질문: 포함
+          result += part;
+        } else {
+          // 두 번째 질문: 이 부분부터 제거
+          cutting = true;
+        }
+      } else {
+        result += part;
+      }
+    }
+  }
+
+  return result.trim();
+}
+
 // ===== 자연스러운 딜레이 =====
 async function naturalDelay(text) {
   // 실제 타이핑 속도 기반 딜레이
@@ -1440,6 +1474,33 @@ async function chat(systemPrompt, userMessage, history = []) {
   });
   const data = await res.json();
   return data.choices[0].message.content;
+}
+
+// ===== 질문 하나로 제한 =====
+function limitToOneQuestion(text) {
+  // 물음표 개수 확인
+  const questions = text.split('?');
+  if (questions.length <= 2) return text; // 물음표 1개 이하면 그대로
+
+  // 물음표가 2개 이상이면 첫 번째 질문까지만 남기고 나머지 질문 제거
+  // 마지막 물음표 이후 내용(보통 빈 문자열)을 제외한 첫 번째 질문만 유지
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  const result = [];
+  let questionCount = 0;
+
+  for (const sentence of sentences) {
+    if (sentence.includes('?')) {
+      if (questionCount === 0) {
+        result.push(sentence);
+        questionCount++;
+      }
+      // 두 번째 질문부터는 제거
+    } else {
+      result.push(sentence);
+    }
+  }
+
+  return result.join(' ').trim();
 }
 
 // ===== Supabase =====
@@ -1543,6 +1604,7 @@ ${jobPersona}
 상대방 호칭은 "${nickname}".
 반말. 카톡 문자 보내는 것처럼.
 
+⚠️ 최우선 규칙: 한 메시지에 물음표(?)는 반드시 1개 이하. 답변 작성 후 ?가 2개 이상이면 질문 하나만 남기고 나머지 삭제. ⚠️
 대화할 때 이렇게 해:
 - 상대방이 한 말에 먼저 자연스럽게 반응하고 이어나가
 - 답변 길이는 완전 가변적으로. 비율로 따지면:
@@ -1550,7 +1612,7 @@ ${jobPersona}
   * 40%는 2~3문장
   * 20%만 길게 (3~4문장 이상)
 - 질문은 대화 흐름상 자연스러울 때만. 매번 질문으로 끝내지 마
-- 질문은 한 번에 딱 하나만. 두 개 이상 절대 금지
+- ⚠️ 질문은 한 메시지에 딱 하나만. 두 개 이상 절대 금지. 문장 안에 "?" 가 두 개 이상이면 안 돼
 - 유저가 이미 말한 정보를 다시 물어보지 마. 히스토리 확인 필수
 - 같은 말, 같은 표현 반복 금지. 히스토리 확인하고 이미 한 말은 안 해
 - 유저의 국적/거주지/기본 정보를 대화에서 파악했으면 그걸 기반으로 대화해. 다시 물어보지 마
@@ -1901,7 +1963,6 @@ async function handleVideoRequest(chatId, user, userText) {
 // ===== 메시지 버퍼링 (연속 메시지 합치기) =====
 async function getBufferedMessage(chatId, newText) {
   try {
-    // 현재 버퍼 가져오기
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/users?chat_id=eq.${chatId}&select=prefs`,
       { headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` } }
@@ -1910,9 +1971,8 @@ async function getBufferedMessage(chatId, newText) {
     const prefs = data[0]?.prefs || {};
 
     const now = Date.now();
-    const bufferTime = 1500; // 1.5초 안에 온 메시지는 합치기
+    const bufferTime = 3000; // 3초 안에 온 메시지는 합치기
 
-    const lastMsgTime = prefs.buffer_time || 0;
     const bufferedText = prefs.buffer_text || '';
 
     // 버퍼에 현재 메시지 추가
@@ -1926,7 +1986,7 @@ async function getBufferedMessage(chatId, newText) {
       body: JSON.stringify({ prefs })
     });
 
-    // 1.5초 대기
+    // 3초 대기
     await new Promise(r => setTimeout(r, bufferTime));
 
     // 대기 후 버퍼 다시 확인
@@ -1937,7 +1997,7 @@ async function getBufferedMessage(chatId, newText) {
     const data2 = await res2.json();
     const latestPrefs = data2[0]?.prefs || {};
 
-    // 내가 마지막 메시지인지 확인 (buffer_time이 내가 설정한 시간과 같으면 마지막)
+    // 내가 마지막 메시지인지 확인
     if (latestPrefs.buffer_time === now) {
       // 마지막 메시지 → 버퍼 클리어하고 합쳐진 텍스트 반환
       latestPrefs.buffer_text = '';
@@ -1947,14 +2007,14 @@ async function getBufferedMessage(chatId, newText) {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ prefs: latestPrefs })
       });
-      return latestPrefs.buffer_text !== undefined ? combined : newText;
+      return combined; // ← 버그 수정: combined 바로 반환
     } else {
       // 내가 마지막이 아님 → null 반환 (처리 안 함)
       return null;
     }
   } catch (e) {
     console.error('buffer error:', e?.message);
-    return newText; // 에러 시 그냥 현재 메시지만
+    return newText;
   }
 }
 
@@ -2350,7 +2410,8 @@ export default async function handler(req, res) {
       const newMsgCount = (user.total_message_count || 0) + 1;
       await updateUser(chatId, { history: [...history, { role: 'user', content: finalText }].slice(-20), total_message_count: newMsgCount });
     } else {
-      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user), finalText, history);
+      const rawReply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user), finalText, history);
+      const reply = limitToOneQuestion(rawReply);
       const newHistory = [...history, { role: 'user', content: finalText }, { role: 'assistant', content: reply }].slice(-20);
       const newMsgCount = (user.total_message_count || 0) + 1;
       await updateUser(chatId, { history: newHistory, total_message_count: newMsgCount });
