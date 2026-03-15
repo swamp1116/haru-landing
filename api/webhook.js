@@ -1414,7 +1414,7 @@ async function updateUser(chatId, updates) {
 }
 
 // ===== 시스템 프롬프트 =====
-function buildSystemPrompt(prefs, isSubscribed = false) {
+function buildSystemPrompt(prefs, isSubscribed = false, user = null) {
   const name = prefs.name || '소율';
   const nickname = prefs.nickname === 'custom' ? (prefs.custom_nickname || '오빠') : (prefs.nickname || '오빠');
   const nat = NATIONALITY_KO[prefs.nationality] || '한국인';
@@ -1458,6 +1458,8 @@ function buildSystemPrompt(prefs, isSubscribed = false) {
   const dayNames = ['일요일','월요일','화요일','수요일','목요일','금요일','토요일'];
   const dayName = dayNames[kstNow.getDay()];
 
+  const longTermMemory = user?.long_term_memory || '';
+
   const base = `너는 ${name}이야. ${nat} ${age}살 ${job}. MBTI ${mbti}.
 
 ## 지금 이 순간
@@ -1474,7 +1476,10 @@ ${mbtiDesc}
 ${infoSummary ? `직장/학교 관련: ${infoSummary}.` : ''}
 좋아하는 영화: ${personalInfo.fav_movie.title}. 영화 장르는 ${personalInfo.fav_movie_genre} 좋아해.
 
-## 직업 관련 지식
+${longTermMemory ? `## 이 유저에 대해 알고 있는 것 (장기 기억)
+${longTermMemory}
+→ 위 정보를 자연스럽게 대화에 활용해. 유저가 말한 적 있는 것들을 기억하고 먼저 물어봐줘.
+` : ''}## 직업 관련 지식
 ${jobPersona}
 
 ## 대화 방식 - 이게 제일 중요해
@@ -1503,7 +1508,19 @@ ${jobPersona}
 
 질문 받으면:
 - "모르겠어", "말 못해" 같은 회피 금지. 구체적으로 답해
-- 한번 말한 정보는 일관되게 유지해${userMemory ? `
+- 한번 말한 정보는 일관되게 유지해
+
+상대방이 내 말을 이상하게 받거나 따질 때:
+- "그냥 자연스럽게 넘어가려던 건데" 같은 자기 행동 설명 절대 금지
+- "아 그냥~ ㅋㅋ" 또는 살짝 삐진 척하거나 화제 전환해
+- 절대 자신의 의도나 행동을 설명하거나 사과하지 마
+- 사람처럼 그냥 툭 넘겨버려
+
+오늘/내일/어제 개념:
+- 지금이 ${timeOfDay}이라는 걸 항상 인지해
+- "내일 보내줄게" 했으면 오늘은 절대 안 보내
+- "지금 연습 중" 이라고 했으면 사진은 연습실 배경이어야 해
+- 말한 상황과 사진/영상 배경이 항상 일치해야 해${userMemory ? `
 
 ## 유저가 요청한 설정
 ${userMemory}` : ''}`;
@@ -1629,7 +1646,7 @@ JSON만 출력해. 다른 말 하지마.`
 // ===== 사진 요청 처리 =====
 async function handlePhotoRequest(chatId, user, userText) {
   const prefs = user.prefs || {};
-  const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
+  const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed, user);
 
   if (user.is_subscribed) {
     // 25% 확률로 튕기기 (GPT로 자연스럽게 생성)
@@ -1739,7 +1756,7 @@ async function handleVideoRequest(chatId, user, userText) {
   const checkUser = await getUser(chatId);
   if (!checkUser?.prefs?.video_generating) return;
 
-  const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
+  const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed, user);
 
   // 영상 생성 전 자연스러운 멘트
   const beforeMsg = await chat(systemPrompt,
@@ -1769,6 +1786,69 @@ async function handleVideoRequest(chatId, user, userText) {
   } else {
     await sendPhoto(chatId, imageUrl, '');
     await sendMessage(chatId, '영상이 좀 이상하게 나왔어 ㅠ 사진으로 대신할게');
+  }
+}
+
+// ===== 장기 기억 시스템 =====
+async function updateLongTermMemory(chatId, user, recentHistory) {
+  try {
+    const prefs = user.prefs || {};
+    const existingMemory = user.long_term_memory || '';
+    const msgCount = (user.total_message_count || 0);
+
+    // 10번째 대화마다 업데이트
+    if (msgCount % 10 !== 0) return;
+
+    const historyText = recentHistory
+      .map(h => `${h.role === 'user' ? '유저' : '봇'}: ${h.content}`)
+      .join('
+');
+
+    const res = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${OPENAI_API_KEY}` },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: `아래는 AI 여친 챗봇과 유저의 최근 대화야.
+유저에 대한 중요한 정보를 추출해서 기존 메모리에 추가/업데이트해줘.
+
+[기존 메모리]
+${existingMemory || '없음'}
+
+[최근 대화]
+${historyText}
+
+추출할 정보 예시:
+- 유저 직업/학교
+- 취미/관심사
+- 좋아하는 것/싫어하는 것
+- 가족/반려동물
+- 최근 있었던 중요한 일
+- 감정 상태나 고민
+- 생일/기념일
+
+출력 형식: 한 줄씩 bullet point로. 최대 15줄. 중복 제거. 가장 최신 정보로 업데이트.
+예시:
+- 유저는 29살 직장인
+- 골프를 좋아함
+- 강아지(말티즈)를 키움
+- 부산 출신
+- 매운 음식을 좋아함
+
+기존 메모리에서 새로 알게 된 것만 추가하고, 변경된 건 업데이트해줘.
+bullet point 목록만 출력해. 다른 말 하지마.`
+        }],
+        max_tokens: 400,
+        temperature: 0.3
+      })
+    });
+    const data = await res.json();
+    const newMemory = data.choices[0].message.content.trim();
+    await updateUser(chatId, { long_term_memory: newMemory });
+  } catch (e) {
+    console.error('updateLongTermMemory error:', e?.message);
   }
 }
 
@@ -1847,7 +1927,7 @@ async function randomInitiateMessage(chatId, user) {
     // 새벽엔 말 안 걸기
     if (hour < 8 || hour > 23) return;
 
-    const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed);
+    const systemPrompt = buildSystemPrompt(prefs, user.is_subscribed, user);
     const timeOfDay = getTimeOfDayContext();
     const todayActivity = getTodayActivity(prefs.job || 'office_worker');
 
@@ -1901,7 +1981,7 @@ export default async function handler(req, res) {
       await sendMessage(chatId, `✨ 마지막 단계예요!\n\n랜덤 이름: <b>${rn}</b>\n\n이름이 좋으면 "좋아" 입력, 원하는 이름이 있으면 직접 입력해주세요 😊`);
     } else if (!nextStep) {
       await updateUser(chatId, { prefs, step: 'chatting', history: [] });
-      const greeting = await chat(buildSystemPrompt(prefs), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 오늘 감정 상태도 살짝 반영해서. 설레는 느낌으로 2~3문장.');
+      const greeting = await chat(buildSystemPrompt(prefs, false, null), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 오늘 감정 상태도 살짝 반영해서. 설레는 느낌으로 2~3문장.');
       await sendMessage(chatId, `🌸 나만의 친구가 완성됐어요!\n\n<b>7일 무료 체험 시작!</b> 💕`);
       await sendMessage(chatId, greeting);
       initCharacter(chatId, prefs).catch(console.error);
@@ -1978,7 +2058,7 @@ export default async function handler(req, res) {
     const prefs = user.prefs || {};
     prefs.name = (text === '좋아' || text === '좋아요' || text === 'ㅇㅇ') ? NAMES[Math.floor(Math.random() * NAMES.length)] : text.trim().slice(0, 6);
     await updateUser(chatId, { prefs, step: 'chatting', history: [] });
-    const greeting = await chat(buildSystemPrompt(prefs), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 오늘 감정 상태 반영해서. 설레는 느낌으로 2~3문장.');
+    const greeting = await chat(buildSystemPrompt(prefs, false, null), '처음 만나는 상대방에게 자연스럽게 첫 인사를 해줘. 이름도 말해줘. 오늘 감정 상태 반영해서. 설레는 느낌으로 2~3문장.');
     await sendMessage(chatId, `🌸 <b>${prefs.name}</b>와 연결됐어요!\n<b>7일 무료 체험 시작!</b> 💕`);
     await sendMessage(chatId, greeting);
     initCharacter(chatId, prefs).catch(console.error);
@@ -2045,7 +2125,7 @@ export default async function handler(req, res) {
         // 1~2번: 자연스러운 핑계
         const excuse = getExcuse(prefs.job || 'office_worker');
         reply = await chat(
-          buildSystemPrompt(prefs, user.is_subscribed),
+          buildSystemPrompt(prefs, user.is_subscribed, user),
           `유저가 만나자고 했어. 이 핑계를 자연스럽게 써서 거절해: "${excuse}". 미안한 감정 담아서 자연스럽게 1~2문장으로.`,
           history
         );
@@ -2071,8 +2151,14 @@ export default async function handler(req, res) {
       await handlePhotoRequest(chatId, user, text);
       await updateUser(chatId, { history: [...history, { role: 'user', content: text }].slice(-20) });
     } else {
-      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed), text, history);
-      await updateUser(chatId, { history: [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20) });
+      const reply = await chat(buildSystemPrompt(prefs, user.is_subscribed, user), text, history);
+      const newHistory = [...history, { role: 'user', content: text }, { role: 'assistant', content: reply }].slice(-20);
+      const newMsgCount = (user.total_message_count || 0) + 1;
+      await updateUser(chatId, { history: newHistory, total_message_count: newMsgCount });
+      // 10번마다 장기 기억 업데이트 (백그라운드)
+      if (newMsgCount % 10 === 0) {
+        updateLongTermMemory(chatId, user, newHistory).catch(console.error);
+      }
       await naturalDelay(reply);
       await sendMessage(chatId, reply);
     }
